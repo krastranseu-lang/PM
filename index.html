@@ -1301,33 +1301,42 @@
                     responses: {}
                 };
                 
-                // Collect all radio button responses
-                const radioGroups = document.querySelectorAll('input[type="radio"]:checked');
-                radioGroups.forEach(radio => {
-                    formData.responses[radio.name] = radio.value;
+                // Collect all radio button responses with proper names
+                const radioGroups = ['allergy', 'bloodClotting', 'feelingWell', 'medications', 'alcohol'];
+                radioGroups.forEach(groupName => {
+                    const checkedRadio = document.querySelector(`input[name="${groupName}"]:checked`);
+                    if (checkedRadio) {
+                        formData.responses[groupName] = checkedRadio.value;
+                    }
                 });
                 
                 // Collect checkbox responses
-                const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
-                checkboxes.forEach(checkbox => {
-                    formData.responses[checkbox.name] = checkbox.checked;
-                });
+                const contraindications = document.getElementById('contraindications');
+                if (contraindications) {
+                    formData.responses.contraindications = contraindications.checked;
+                }
+                
+                const noMedicalContraindications = document.getElementById('noMedicalContraindications');
+                if (noMedicalContraindications) {
+                    formData.responses.noMedicalContraindications = noMedicalContraindications.checked;
+                }
                 
                 // Collect textarea responses
-                const textareas = document.querySelectorAll('textarea');
-                textareas.forEach(textarea => {
-                    if (textarea.value.trim()) {
-                        formData.responses[textarea.name || textarea.id] = textarea.value;
-                    }
-                });
+                const botoxFillers = document.getElementById('botoxFillers');
+                if (botoxFillers && botoxFillers.value.trim()) {
+                    formData.responses.botoxFillers = botoxFillers.value;
+                }
                 
-                // Collect select responses
-                const selects = document.querySelectorAll('select');
-                selects.forEach(select => {
-                    if (select.value && select.value !== 'Оберіть...') {
-                        formData.responses[select.name || select.id] = select.value;
-                    }
-                });
+                const vacationPlans = document.getElementById('plans');
+                if (vacationPlans && vacationPlans.value.trim()) {
+                    formData.responses.vacationPlans = vacationPlans.value;
+                }
+                
+                // Collect sensitivity level
+                const sensitivity = document.getElementById('sensitivity');
+                if (sensitivity && sensitivity.value !== 'Оберіть...') {
+                    formData.responses.sensitivity = sensitivity.value;
+                }
                 
                 console.log('[v0] Collected form data:', formData);
                 return formData;
@@ -1348,7 +1357,6 @@
             try {
                 console.log('[v0] Starting PDF generation for:', firstName, lastName);
                 
-                // Check if jsPDF is loaded
                 if (!window.jspdf) {
                     throw new Error('jsPDF library not loaded');
                 }
@@ -1356,7 +1364,6 @@
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 
-                // Set font for Ukrainian text support
                 pdf.setFont('helvetica');
                 pdf.setFontSize(12);
                 
@@ -1364,7 +1371,6 @@
                 console.log('[v0] Form data for PDF:', formData);
                 
                 const currentDate = new Date().toLocaleDateString('uk-UA');
-                const formTitle = currentForm === 'permanent' ? 'ПЕРМАНЕНТНОГО МАКІЯЖУ' : 'ВИДАЛЕННЯ ПЕРМАНЕНТНОГО МАКІЯЖУ';
                 
                 let yPosition = 20;
                 const lineHeight = 7;
@@ -1377,7 +1383,7 @@
                 const headerText = 'INFORMOVANA ZGODA KLIENTA NA VYKONANNYA';
                 pdf.text(headerText, pageWidth/2, yPosition, { align: 'center' });
                 yPosition += lineHeight;
-                pdf.text(formTitle, pageWidth/2, yPosition, { align: 'center' });
+                pdf.text('PERMANENTNOGO MAKIYAZHU', pageWidth/2, yPosition, { align: 'center' });
                 yPosition += lineHeight * 2;
                 
                 // Basic info
@@ -1390,45 +1396,68 @@
                 pdf.text(`Telefon mob.: ${formData.phone || '_________________'}`, margin, yPosition);
                 yPosition += lineHeight * 2;
                 
-                // Add form questions and responses
-                if (currentForm === 'permanent') {
-                    // Permanent makeup form content
-                    const questions = [
-                        'Chy ye u Vas alergiya na lidokain/tsukrovyy diabet/vagitnist?',
-                        'Khorosha/pogana zgortannya krovi?',
-                        'Chy vidchuvayete sebe dosyt добре, shchob vykonuvaty protseduru?',
-                        'Chy pryyimayete Vy zaraz yakis medychni preparaty?',
-                        'Chy vzhyvaly vy alkogol uchora/sogodni?'
-                    ];
-                    
-                    questions.forEach((question, index) => {
-                        pdf.text(`${index + 1}. ${question}`, margin, yPosition);
-                        yPosition += lineHeight;
-                        const response = formData.responses[`question${index + 1}`] || 'Не відповів';
-                        pdf.text(`   Відповідь: ${response}`, margin + 10, yPosition);
-                        yPosition += lineHeight * 1.5;
-                    });
-                } else {
-                    // Removal form content
-                    pdf.text('Zgoda na vydalennya permanentnogo makiyazhu remuvером/lazerom', margin, yPosition);
-                    yPosition += lineHeight * 2;
+                // Questions with proper answers
+                const questions = [
+                    { key: 'allergy', text: '1. Chy ye u Vas alergiya na lidokain/tsukrovyy diabet/vagitnist?' },
+                    { key: 'bloodClotting', text: '2. Khorosha/pogana zgortannya krovi?' },
+                    { key: 'feelingWell', text: '3. Chy vidchuvayete sebe dosyt dobre, shchob vykonuvaty protseduru?' },
+                    { key: 'medications', text: '4. Chy pryyimayete Vy zaraz yakis medychni preparaty?' },
+                    { key: 'alcohol', text: '5. Chy vzhyvaly vy alkogol uchora/sogodni?' }
+                ];
+                
+                questions.forEach(question => {
+                    pdf.text(question.text, margin, yPosition);
+                    yPosition += lineHeight;
+                    const answer = formData.responses[question.key] || 'NI';
+                    pdf.text(`        ${answer}`, margin + 10, yPosition);
+                    yPosition += lineHeight * 1.5;
+                });
+                
+                // Additional fields
+                if (formData.responses.sensitivity) {
+                    pdf.text(`Porig chutlyvosti: ${formData.responses.sensitivity}`, margin, yPosition);
+                    yPosition += lineHeight;
                 }
                 
-                // Add consent text
+                if (formData.responses.botoxFillers) {
+                    pdf.text('Botoks/filery:', margin, yPosition);
+                    yPosition += lineHeight;
+                    pdf.text(formData.responses.botoxFillers, margin, yPosition);
+                    yPosition += lineHeight * 1.5;
+                }
+                
+                if (formData.responses.vacationPlans) {
+                    pdf.text('Plany na vidpustku:', margin, yPosition);
+                    yPosition += lineHeight;
+                    pdf.text(formData.responses.vacationPlans, margin, yPosition);
+                    yPosition += lineHeight * 1.5;
+                }
+                
+                // Consent text
                 yPosition += lineHeight;
                 pdf.text('Ya dayu dozil na vykonannya protsedur permanentnogo makiyazhu', margin, yPosition);
                 yPosition += lineHeight;
-                pdf.text('za zatverdzhenyм eskizom.', margin, yPosition);
+                pdf.text('za zatverdzhenyy eskizom.', margin, yPosition);
                 yPosition += lineHeight * 2;
                 
+                // Contraindications
+                if (formData.responses.contraindications) {
+                    pdf.text('✓ Ya oznayomlena z protypokazamy do protsedury!', margin, yPosition);
+                    yPosition += lineHeight;
+                }
+                
+                if (formData.responses.noMedicalContraindications) {
+                    pdf.text('✓ Ya ne mayu medychnykh protypokazan dlya vykonannya protsedur', margin, yPosition);
+                    yPosition += lineHeight * 2;
+                }
+                
                 // Signatures
+                yPosition += lineHeight;
                 pdf.text('Pidpys klienta: _________________', margin, yPosition);
                 yPosition += lineHeight * 2;
                 pdf.text('Pidpys maystra: _________________', margin, yPosition);
                 
-                // Convert to blob
                 const pdfBlob = pdf.output('blob');
-                console.log('[v0] PDF generated, size:', pdfBlob.size);
                 
                 if (!pdfBlob || pdfBlob.size === 0) {
                     throw new Error('Generated PDF is empty');
@@ -1438,7 +1467,7 @@
                 
             } catch (error) {
                 console.error('[v0] Error generating PDF:', error);
-                throw new Error('Помилка генерування PDF: ' + error.message);
+                throw error;
             }
         }
 
