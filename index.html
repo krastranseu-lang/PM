@@ -1485,6 +1485,198 @@
             
             updateFormData();
         }
+
+        async function shareFormAsPDF() {
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            
+            if (!firstName || !lastName) {
+                alert('Будь ласка, введіть ім\'я та прізвище перед поділенням');
+                return;
+            }
+            
+            // Save before sharing
+            saveForm();
+            
+            const filename = `${firstName}_${lastName}_Zgoda.pdf`;
+            
+            try {
+                // Generate PDF content
+                const pdfBlob = await generatePDFBlob(firstName, lastName);
+                
+                // Check if Web Share API is supported (iOS Safari)
+                if (navigator.share && navigator.canShare) {
+                    const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+                    
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            title: `Згода - ${firstName} ${lastName}`,
+                            text: 'Форма згоди на перманентний макіяж',
+                            files: [file]
+                        });
+                        return;
+                    }
+                }
+                
+                // Fallback - direct download
+                downloadPDFBlob(pdfBlob, filename);
+                
+            } catch (error) {
+                console.error('Error sharing PDF:', error);
+                alert('Помилка при створенні PDF. Спробуйте ще раз.');
+            }
+        }
+
+        async function generatePDFBlob(firstName, lastName) {
+            return new Promise((resolve) => {
+                // Get current form content
+                const activeForm = document.querySelector('.consent-form.active');
+                const formContent = activeForm.cloneNode(true);
+                
+                // Remove interactive elements
+                const interactiveElements = formContent.querySelectorAll('input, select, textarea, button');
+                interactiveElements.forEach(element => {
+                    if (element.type === 'radio' && element.checked) {
+                        const label = formContent.querySelector(`label[for="${element.id}"]`);
+                        if (label) {
+                            label.style.fontWeight = 'bold';
+                            label.style.color = '#007bff';
+                        }
+                    }
+                    element.style.display = 'none';
+                });
+                
+                // Add filled values as text
+                const editableFields = formContent.querySelectorAll('.editable-field');
+                editableFields.forEach(field => {
+                    const input = field.querySelector('input, select, textarea');
+                    if (input && input.value) {
+                        field.innerHTML = input.value;
+                        field.style.borderBottom = '1px solid #333';
+                        field.style.padding = '2px 5px';
+                    }
+                });
+                
+                // Add signatures
+                const clientSignature = document.getElementById('clientSignature');
+                const masterSignature = document.getElementById('masterSignature');
+                
+                const signaturesHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-top: 50px; page-break-inside: avoid;">
+                        <div style="text-align: center;">
+                            <p><strong>Підпис клієнта:</strong></p>
+                            <img src="${clientSignature.toDataURL()}" style="border: 1px solid #ccc; max-width: 200px; max-height: 100px;">
+                        </div>
+                        <div style="text-align: center;">
+                            <p><strong>Підпис майстра:</strong></p>
+                            <img src="${masterSignature.toDataURL()}" style="border: 1px solid #ccc; max-width: 200px; max-height: 100px;">
+                        </div>
+                    </div>
+                `;
+                
+                // Create complete HTML for PDF
+                const htmlContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>${firstName}_${lastName}_Zgoda</title>
+                        <style>
+                            body { 
+                                font-family: Arial, sans-serif; 
+                                padding: 20px; 
+                                line-height: 1.4;
+                                max-width: 800px;
+                                margin: 0 auto;
+                                color: #333;
+                            }
+                            .form-header { 
+                                text-align: center; 
+                                margin-bottom: 30px; 
+                                font-size: 18px;
+                                font-weight: bold;
+                            }
+                            .editable-field { 
+                                border-bottom: 1px solid #333; 
+                                padding: 2px 5px; 
+                                display: inline-block;
+                                min-width: 100px;
+                                font-weight: bold;
+                            }
+                            .static-text { 
+                                line-height: 1.6; 
+                                margin: 10px 0;
+                            }
+                            .yes-no-question { 
+                                margin: 15px 0; 
+                                padding: 10px;
+                                background: #f9f9f9;
+                                border-left: 3px solid #007bff;
+                            }
+                            .question-text { 
+                                font-weight: bold; 
+                                margin-bottom: 8px; 
+                            }
+                            .radio-group { 
+                                margin-left: 20px; 
+                            }
+                            .radio-item { 
+                                display: inline-block; 
+                                margin-right: 30px; 
+                                font-size: 14px;
+                            }
+                            ul { 
+                                margin: 10px 0; 
+                                padding-left: 20px; 
+                            }
+                            li { 
+                                margin: 5px 0; 
+                            }
+                            @media print {
+                                body { margin: 0; padding: 15px; }
+                                .no-print { display: none; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${formContent.innerHTML}
+                        ${signaturesHTML}
+                    </body>
+                    </html>
+                `;
+                
+                // Convert HTML to blob (simulating PDF)
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                resolve(blob);
+            });
+        }
+
+        function downloadPDFBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = filename.replace('.pdf', '.html'); // HTML format for now
+            downloadLink.style.display = 'none';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            
+            // Cleanup
+            setTimeout(() => {
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(url);
+            }, 1000);
+        }
+
+        function shareForm() {
+            shareFormAsPDF();
+        }
+
+        // Prevent form submission on Enter key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+            }
+        });
     </script>
 </body>
 </html>
