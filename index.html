@@ -1286,6 +1286,214 @@
             return formData;
         }
 
+        function collectFormData() {
+            try {
+                const firstName = document.getElementById('firstName')?.value || '';
+                const lastName = document.getElementById('lastName')?.value || '';
+                const phone = document.getElementById('phone')?.value || '';
+                const birthDate = document.getElementById('birthDate')?.value || '';
+                
+                const formData = {
+                    firstName,
+                    lastName,
+                    phone,
+                    birthDate,
+                    responses: {}
+                };
+                
+                // Collect all radio button responses
+                const radioGroups = document.querySelectorAll('input[type="radio"]:checked');
+                radioGroups.forEach(radio => {
+                    formData.responses[radio.name] = radio.value;
+                });
+                
+                // Collect checkbox responses
+                const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+                checkboxes.forEach(checkbox => {
+                    formData.responses[checkbox.name] = checkbox.checked;
+                });
+                
+                // Collect textarea responses
+                const textareas = document.querySelectorAll('textarea');
+                textareas.forEach(textarea => {
+                    if (textarea.value.trim()) {
+                        formData.responses[textarea.name || textarea.id] = textarea.value;
+                    }
+                });
+                
+                // Collect select responses
+                const selects = document.querySelectorAll('select');
+                selects.forEach(select => {
+                    if (select.value && select.value !== 'Оберіть...') {
+                        formData.responses[select.name || select.id] = select.value;
+                    }
+                });
+                
+                console.log('[v0] Collected form data:', formData);
+                return formData;
+                
+            } catch (error) {
+                console.error('[v0] Error collecting form data:', error);
+                return {
+                    firstName: '',
+                    lastName: '',
+                    phone: '',
+                    birthDate: '',
+                    responses: {}
+                };
+            }
+        }
+
+        async function generatePDFBlob(firstName, lastName) {
+            try {
+                console.log('[v0] Starting PDF generation for:', firstName, lastName);
+                
+                // Check if jsPDF is loaded
+                if (!window.jspdf) {
+                    throw new Error('jsPDF library not loaded');
+                }
+                
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                
+                // Set font for Ukrainian text support
+                pdf.setFont('helvetica');
+                pdf.setFontSize(12);
+                
+                const formData = collectFormData();
+                console.log('[v0] Form data for PDF:', formData);
+                
+                const currentDate = new Date().toLocaleDateString('uk-UA');
+                const formTitle = currentForm === 'permanent' ? 'ПЕРМАНЕНТНОГО МАКІЯЖУ' : 'ВИДАЛЕННЯ ПЕРМАНЕНТНОГО МАКІЯЖУ';
+                
+                let yPosition = 20;
+                const lineHeight = 7;
+                const pageWidth = 210;
+                const margin = 20;
+                
+                // Header
+                pdf.setFontSize(14);
+                pdf.setFont('helvetica', 'bold');
+                const headerText = 'INFORMOVANA ZGODA KLIENTA NA VYKONANNYA';
+                pdf.text(headerText, pageWidth/2, yPosition, { align: 'center' });
+                yPosition += lineHeight;
+                pdf.text(formTitle, pageWidth/2, yPosition, { align: 'center' });
+                yPosition += lineHeight * 2;
+                
+                // Basic info
+                pdf.setFontSize(12);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(`Data: ${currentDate}`, margin, yPosition);
+                yPosition += lineHeight;
+                pdf.text(`PIB: ${firstName} ${lastName}`, margin, yPosition);
+                yPosition += lineHeight;
+                pdf.text(`Telefon mob.: ${formData.phone || '_________________'}`, margin, yPosition);
+                yPosition += lineHeight * 2;
+                
+                // Add form questions and responses
+                if (currentForm === 'permanent') {
+                    // Permanent makeup form content
+                    const questions = [
+                        'Chy ye u Vas alergiya na lidokain/tsukrovyy diabet/vagitnist?',
+                        'Khorosha/pogana zgortannya krovi?',
+                        'Chy vidchuvayete sebe dosyt добре, shchob vykonuvaty protseduru?',
+                        'Chy pryyimayete Vy zaraz yakis medychni preparaty?',
+                        'Chy vzhyvaly vy alkogol uchora/sogodni?'
+                    ];
+                    
+                    questions.forEach((question, index) => {
+                        pdf.text(`${index + 1}. ${question}`, margin, yPosition);
+                        yPosition += lineHeight;
+                        const response = formData.responses[`question${index + 1}`] || 'Не відповів';
+                        pdf.text(`   Відповідь: ${response}`, margin + 10, yPosition);
+                        yPosition += lineHeight * 1.5;
+                    });
+                } else {
+                    // Removal form content
+                    pdf.text('Zgoda na vydalennya permanentnogo makiyazhu remuvером/lazerom', margin, yPosition);
+                    yPosition += lineHeight * 2;
+                }
+                
+                // Add consent text
+                yPosition += lineHeight;
+                pdf.text('Ya dayu dozil na vykonannya protsedur permanentnogo makiyazhu', margin, yPosition);
+                yPosition += lineHeight;
+                pdf.text('za zatverdzhenyм eskizom.', margin, yPosition);
+                yPosition += lineHeight * 2;
+                
+                // Signatures
+                pdf.text('Pidpys klienta: _________________', margin, yPosition);
+                yPosition += lineHeight * 2;
+                pdf.text('Pidpys maystra: _________________', margin, yPosition);
+                
+                // Convert to blob
+                const pdfBlob = pdf.output('blob');
+                console.log('[v0] PDF generated, size:', pdfBlob.size);
+                
+                if (!pdfBlob || pdfBlob.size === 0) {
+                    throw new Error('Generated PDF is empty');
+                }
+                
+                return pdfBlob;
+                
+            } catch (error) {
+                console.error('[v0] Error generating PDF:', error);
+                throw new Error('Помилка генерування PDF: ' + error.message);
+            }
+        }
+
+        async function shareFormAsPDF() {
+            const firstName = document.getElementById('firstName')?.value?.trim();
+            const lastName = document.getElementById('lastName')?.value?.trim();
+            
+            console.log('[v0] Share PDF called with:', firstName, lastName);
+            
+            if (!firstName || !lastName) {
+                showNotification('Будь ласка, введіть ім\'я та прізвище перед поділенням', 'warning');
+                return;
+            }
+            
+            // Save before sharing
+            saveForm();
+            
+            const filename = `${firstName}_${lastName}_Zgoda.pdf`;
+            
+            try {
+                showNotification('Генерування PDF...', 'info', 2000);
+                
+                const pdfBlob = await generatePDFBlob(firstName, lastName);
+                
+                if (!pdfBlob || pdfBlob.size === 0) {
+                    throw new Error('PDF blob is empty');
+                }
+                
+                console.log('[v0] PDF blob created successfully, size:', pdfBlob.size);
+                
+                // Check if Web Share API is supported (iOS Safari)
+                if (navigator.share && navigator.canShare) {
+                    const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+                    
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            title: `Згода - ${firstName} ${lastName}`,
+                            text: 'Форма згоди на перманентний макіяж',
+                            files: [file]
+                        });
+                        showNotification('PDF успішно поділено!', 'success');
+                        return;
+                    }
+                }
+                
+                // Fallback - direct download
+                downloadPDFBlob(pdfBlob, filename);
+                showNotification('PDF завантажено!', 'success');
+                
+            } catch (error) {
+                console.error('[v0] Error sharing PDF:', error);
+                showNotification(`Помилка: ${error.message}`, 'error', 6000);
+            }
+        }
+
         function authenticateGoogleDrive() {
             // Simulate Google Drive connection
             googleDriveConnected = true;
