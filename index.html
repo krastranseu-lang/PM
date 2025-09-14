@@ -343,6 +343,48 @@
                 width: 100%;
             }
         }
+
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            margin-left: 10px;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .radio-item input[type="radio"] {
+            transform: scale(1.2);
+        }
+
+        .yes-no-question {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+
+        .question-text {
+            font-weight: 500;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .sensitivity-group {
+            margin: 15px 0;
+        }
+
+        .sensitivity-group select {
+            width: 200px;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -420,39 +462,84 @@
                     <p><strong>Телефон моб.:</strong> <span class="editable-field" id="phoneDisplay1"></span></p>
                 </div>
 
-                <div class="checkbox-group">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="allergy">
-                        <label>Чи є у Вас алергія на лідокаїн /цукровий діабет/вагітність?</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="bloodClotting">
-                        <label>Хороша/погана згортання крові?</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="feelingWell">
-                        <label>Чи відчуваєте себе досить добре, щоб виконувати процедуру?</label>
+                <!-- Replaced simple checkboxes with proper YES/NO radio buttons for medical questions -->
+                <div class="yes-no-question">
+                    <div class="question-text">Чи є у Вас алергія на лідокаїн /цукровий діабет/вагітність?</div>
+                    <div class="radio-group">
+                        <div class="radio-item">
+                            <input type="radio" id="allergy_yes" name="allergy" value="yes">
+                            <label for="allergy_yes">ТАК</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="allergy_no" name="allergy" value="no">
+                            <label for="allergy_no">НІ</label>
+                        </div>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Поріг чутливості</label>
+                <div class="yes-no-question">
+                    <div class="question-text">Хороша/погана згортання крові?</div>
+                    <div class="radio-group">
+                        <div class="radio-item">
+                            <input type="radio" id="blood_good" name="bloodClotting" value="good">
+                            <label for="blood_good">ХОРОША</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="blood_bad" name="bloodClotting" value="bad">
+                            <label for="blood_bad">ПОГАНА</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="yes-no-question">
+                    <div class="question-text">Чи відчуваєте себе досить добре, щоб виконувати процедуру?</div>
+                    <div class="radio-group">
+                        <div class="radio-item">
+                            <input type="radio" id="feeling_yes" name="feelingWell" value="yes">
+                            <label for="feeling_yes">ТАК</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="feeling_no" name="feelingWell" value="no">
+                            <label for="feeling_no">НІ</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sensitivity-group">
+                    <div class="question-text">Поріг чутливості:</div>
                     <select id="sensitivity">
                         <option value="">Оберіть...</option>
-                        <option value="низький">Низький</option>
-                        <option value="середній">Середній</option>
-                        <option value="високий">Високий</option>
+                        <option value="low">низький</option>
+                        <option value="medium">середній</option>
+                        <option value="high">високий</option>
                     </select>
                 </div>
 
-                <div class="checkbox-group">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="medications">
-                        <label>Чи приймаєте Ви зараз якісь медичні препарати?</label>
+                <div class="yes-no-question">
+                    <div class="question-text">Чи приймаєте Ви зараз якісь медичні препарати?</div>
+                    <div class="radio-group">
+                        <div class="radio-item">
+                            <input type="radio" id="medications_yes" name="medications" value="yes">
+                            <label for="medications_yes">ТАК</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="medications_no" name="medications" value="no">
+                            <label for="medications_no">НІ</label>
+                        </div>
                     </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="alcohol">
-                        <label>Чи вживали ви алкоголь учора/сьогодні?</label>
+                </div>
+
+                <div class="yes-no-question">
+                    <div class="question-text">Чи вживали ви алкоголь учора/сьогодні?</div>
+                    <div class="radio-group">
+                        <div class="radio-item">
+                            <input type="radio" id="alcohol_yes" name="alcohol" value="yes">
+                            <label for="alcohol_yes">ТАК</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="alcohol_no" name="alcohol" value="no">
+                            <label for="alcohol_no">НІ</label>
+                        </div>
                     </div>
                 </div>
 
@@ -491,11 +578,21 @@
                     <p>Я отримала письмово «Рекомендації після процедури перманентного макіяжу»</p>
                 </div>
 
-                <div class="checkbox-group">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="contraindications" required>
-                        <label>Я ознайомлена з протипоказами до процедури перманентного макіяжу!</label>
+                <div class="yes-no-question">
+                    <div class="question-text">Я ознайомлена з протипоказами до процедури перманентного макіяжу!</div>
+                    <div class="radio-group">
+                        <div class="radio-item">
+                            <input type="radio" id="contraindications_yes" name="contraindications" value="yes" required>
+                            <label for="contraindications_yes">ТАК</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="contraindications_no" name="contraindications" value="no">
+                            <label for="contraindications_no">НІ</label>
+                        </div>
                     </div>
+                </div>
+
+                <div class="checkbox-group">
                     <div class="checkbox-item">
                         <input type="checkbox" id="noMedicalContraindications" required>
                         <label>Я не маю медичних протипоказань для виконання процедур ПМ</label>
@@ -1219,6 +1316,175 @@
                 e.preventDefault();
             }
         });
+
+        function generatePDF() {
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            
+            if (!firstName || !lastName) {
+                alert('Будь ласка, введіть ім\'я та прізвище клієнта');
+                return;
+            }
+
+            // Set document title for PDF filename
+            const filename = `${firstName}_${lastName}_Zgoda_${currentForm === 'permanent' ? 'PM' : 'Removal'}`;
+            document.title = filename;
+
+            // Create a clean version for PDF
+            const printContent = document.querySelector('.form-container').cloneNode(true);
+            
+            // Remove buttons and controls from print version
+            const buttonsToRemove = printContent.querySelectorAll('button, .form-controls, .patient-search');
+            buttonsToRemove.forEach(btn => btn.remove());
+
+            // Create new window for PDF
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${filename}</title>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .form-container { max-width: 800px; margin: 0 auto; }
+                        .yes-no-question { margin: 10px 0; }
+                        .question-text { font-weight: bold; margin-bottom: 5px; }
+                        .radio-group { margin-left: 20px; }
+                        .radio-item { display: inline-block; margin-right: 20px; }
+                        input[type="radio"]:checked + label { font-weight: bold; color: #007bff; }
+                        .signature-section { margin-top: 30px; }
+                        .signature-pad { border: 1px solid #ccc; margin: 10px 0; }
+                        @media print {
+                            body { margin: 0; }
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${printContent.innerHTML}
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            
+            // Wait for content to load then print
+            setTimeout(() => {
+                printWindow.print();
+            }, 500);
+        }
+
+        function saveForm() {
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            
+            if (!firstName || !lastName) {
+                alert('Будь ласка, введіть ім\'я та прізвище клієнта');
+                return;
+            }
+            
+            const formData = {};
+            
+            // Handle regular inputs
+            const inputs = document.querySelectorAll('input[type="text"], input[type="tel"], input[type="date"], select, textarea');
+            inputs.forEach(input => {
+                if (input.id) {
+                    formData[input.id] = input.value;
+                }
+            });
+            
+            // Handle radio buttons
+            const radioGroups = ['allergy', 'bloodClotting', 'feelingWell', 'medications', 'alcohol', 'contraindications'];
+            radioGroups.forEach(groupName => {
+                const checkedRadio = document.querySelector(`input[name="${groupName}"]:checked`);
+                if (checkedRadio) {
+                    formData[groupName] = checkedRadio.value;
+                }
+            });
+            
+            // Handle checkboxes for medical conditions
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                if (checkbox.id) {
+                    formData[checkbox.id] = checkbox.checked;
+                }
+            });
+
+            const signatures = {
+                client: document.getElementById('clientSignature').toDataURL(),
+                master: document.getElementById('masterSignature').toDataURL()
+            };
+            
+            const patientData = {
+                firstName,
+                lastName,
+                phone: document.getElementById('phone').value,
+                birthDate: document.getElementById('birthDate').value,
+                date: new Date().toISOString().split('T')[0],
+                formType: currentForm,
+                formData,
+                signatures
+            };
+            
+            // Save to local storage
+            const existingIndex = patientHistory.findIndex(p => 
+                p.firstName === firstName && p.lastName === lastName
+            );
+            
+            if (existingIndex >= 0) {
+                patientHistory[existingIndex] = patientData;
+            } else {
+                patientHistory.push(patientData);
+            }
+            
+            localStorage.setItem('patientHistory', JSON.stringify(patientHistory));
+            loadPatientHistory();
+            
+            // Save to Google Drive if connected
+            if (googleDriveConnected) {
+                saveToGoogleDrive(patientData);
+            }
+            
+            alert('Форму збережено успішно!');
+        }
+
+        function loadPatientData(patient) {
+            // Load basic info
+            document.getElementById('firstName').value = patient.firstName || '';
+            document.getElementById('lastName').value = patient.lastName || '';
+            document.getElementById('phone').value = patient.phone || '';
+            document.getElementById('birthDate').value = patient.birthDate || '';
+            
+            if (patient.formData) {
+                // Load text inputs
+                Object.keys(patient.formData).forEach(key => {
+                    const element = document.getElementById(key);
+                    if (element) {
+                        if (element.type === 'checkbox') {
+                            element.checked = patient.formData[key];
+                        } else if (element.type === 'radio') {
+                            // Skip radio buttons, handle them separately
+                        } else {
+                            element.value = patient.formData[key] || '';
+                        }
+                    }
+                });
+                
+                // Load radio button states
+                const radioGroups = ['allergy', 'bloodClotting', 'feelingWell', 'medications', 'alcohol', 'contraindications'];
+                radioGroups.forEach(groupName => {
+                    if (patient.formData[groupName]) {
+                        const radioButton = document.querySelector(`input[name="${groupName}"][value="${patient.formData[groupName]}"]`);
+                        if (radioButton) {
+                            radioButton.checked = true;
+                        }
+                    }
+                });
+            }
+            
+            updateFormData();
+        }
     </script>
 </body>
 </html>
