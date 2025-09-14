@@ -1494,6 +1494,93 @@
             }
         }
 
+        async function shareFormAsPDF() {
+            const firstName = document.getElementById('firstName')?.value?.trim();
+            const lastName = document.getElementById('lastName')?.value?.trim();
+            
+            console.log('[v0] Share PDF called with:', firstName, lastName);
+            
+            if (!firstName || !lastName) {
+                showNotification('Будь ласка, введіть ім\'я та прізвище перед поділенням', 'warning');
+                return;
+            }
+            
+            // Save before sharing
+            saveForm();
+            
+            const filename = `${firstName}_${lastName}_Zgoda.pdf`;
+            
+            try {
+                showNotification('Генерування PDF...', 'info', 2000);
+                
+                const pdfBlob = await generatePDFBlob(firstName, lastName);
+                
+                if (!pdfBlob || pdfBlob.size === 0) {
+                    throw new Error('PDF blob is empty');
+                }
+                
+                console.log('[v0] PDF blob created successfully, size:', pdfBlob.size);
+                
+                // Check if Web Share API is supported (iOS Safari)
+                if (navigator.share) {
+                    try {
+                        const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+                        
+                        // Check if files can be shared
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                title: `Згода - ${firstName} ${lastName}`,
+                                text: 'Форма згоди на перманентний макіяж',
+                                files: [file]
+                            });
+                            showNotification('PDF успішно поділено!', 'success');
+                            return;
+                        } else {
+                            // Try sharing without files (text only)
+                            await navigator.share({
+                                title: `Згода - ${firstName} ${lastName}`,
+                                text: 'Форма згоди на перманентний макіяж'
+                            });
+                            // Still download the file
+                            downloadPDFBlob(pdfBlob, filename);
+                            showNotification('PDF завантажено! Посилання поділено.', 'success');
+                            return;
+                        }
+                    } catch (shareError) {
+                        console.log('[v0] Share was cancelled or failed:', shareError.message);
+                        // If user cancelled sharing, just download the file
+                        if (shareError.name === 'AbortError') {
+                            downloadPDFBlob(pdfBlob, filename);
+                            showNotification('PDF завантажено (поділення скасовано)', 'info');
+                            return;
+                        }
+                        throw shareError;
+                    }
+                }
+                
+                // Fallback - direct download
+                downloadPDFBlob(pdfBlob, filename);
+                showNotification('PDF завантажено!', 'success');
+                
+            } catch (error) {
+                console.error('[v0] Error sharing PDF:', error);
+                if (error.message.includes('empty') || error.message.includes('PDF')) {
+                    showNotification('Помилка при створенні PDF. Перевірте заповнення форми та спробуйте ще раз.', 'error', 6000);
+                } else {
+                    showNotification('Помилка при поділенні. PDF буде завантажено.', 'warning');
+                    // Try to download anyway
+                    try {
+                        const pdfBlob = await generatePDFBlob(firstName, lastName);
+                        if (pdfBlob && pdfBlob.size > 0) {
+                            downloadPDFBlob(pdfBlob, filename);
+                        }
+                    } catch (downloadError) {
+                        console.error('[v0] Download fallback failed:', downloadError);
+                    }
+                }
+            }
+        }
+
         function authenticateGoogleDrive() {
             // Simulate Google Drive connection
             googleDriveConnected = true;
