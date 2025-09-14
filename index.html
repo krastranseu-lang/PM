@@ -805,6 +805,10 @@
     <!-- Dodanie kontenera dla powiadomień -->
     <div id="notificationContainer"></div>
 
+    <!-- Adding jsPDF library for proper PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
     <script>
         // Global variables
         let currentForm = 'permanent';
@@ -1136,32 +1140,129 @@
 
         async function generatePDFBlob(firstName, lastName) {
             try {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                
+                // Set font for Ukrainian text support
+                pdf.setFont('helvetica');
+                pdf.setFontSize(12);
+                
                 const formData = collectFormData();
+                const currentDate = new Date().toLocaleDateString('uk-UA');
+                const formTitle = currentForm === 'permanent' ? 'ПЕРМАНЕНТНОГО МАКІЯЖУ' : 'ВИДАЛЕННЯ ПЕРМАНЕНТНОГО МАКІЯЖУ';
                 
-                if (!formData || Object.keys(formData).length === 0) {
-                    throw new Error('No form data collected');
+                let yPosition = 20;
+                const lineHeight = 7;
+                const pageWidth = 210;
+                const margin = 20;
+                const maxWidth = pageWidth - (margin * 2);
+                
+                // Header
+                pdf.setFontSize(14);
+                pdf.setFont('helvetica', 'bold');
+                const headerText = 'ІНФОРМОВАНА ЗГОДА КЛІЄНТА НА ВИКОНАННЯ';
+                pdf.text(headerText, pageWidth/2, yPosition, { align: 'center' });
+                yPosition += lineHeight;
+                pdf.text(formTitle, pageWidth/2, yPosition, { align: 'center' });
+                yPosition += lineHeight * 2;
+                
+                // Basic info
+                pdf.setFontSize(12);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(`Дата: ${currentDate}`, margin, yPosition);
+                yPosition += lineHeight;
+                pdf.text(`ПІБ: ${firstName} ${lastName}`, margin, yPosition);
+                yPosition += lineHeight;
+                pdf.text(`Телефон моб.: ${formData.phone || '_________________'}`, margin, yPosition);
+                yPosition += lineHeight * 2;
+                
+                // Form-specific content
+                if (currentForm === 'permanent') {
+                    yPosition = addPermanentMakeupContent(pdf, formData, yPosition, margin, lineHeight);
+                } else {
+                    yPosition = addRemovalContent(pdf, formData, yPosition, margin, lineHeight);
                 }
                 
-                // Create a clean HTML for PDF
-                const printContent = generatePrintableHTML(firstName, lastName, formData);
+                // Signatures
+                yPosition += lineHeight;
+                pdf.text('Підпис клієнта: _________________', margin, yPosition);
+                yPosition += lineHeight * 2;
+                pdf.text('Підпис майстра: _________________', margin, yPosition);
                 
-                if (!printContent || printContent.length < 100) {
-                    throw new Error('Generated HTML is too short');
+                // Convert to blob
+                const pdfBlob = pdf.output('blob');
+                
+                if (!pdfBlob || pdfBlob.size === 0) {
+                    throw new Error('Generated PDF is empty');
                 }
                 
-                // Create blob from HTML
-                const blob = new Blob([printContent], { type: 'text/html;charset=utf-8' });
-                
-                if (blob.size === 0) {
-                    throw new Error('Generated blob is empty');
-                }
-                
-                return blob;
+                return pdfBlob;
                 
             } catch (error) {
-                console.error('Error in generatePDFBlob:', error);
-                throw error;
+                console.error('Error generating PDF:', error);
+                throw new Error('Помилка генерування PDF: ' + error.message);
             }
+        }
+        
+        function addPermanentMakeupContent(pdf, formData, yPosition, margin, lineHeight) {
+            const questions = [
+                { key: 'allergy', text: 'Чи є у Вас алергія на лідокаїн /цукровий діабет/вагітність?' },
+                { key: 'bloodClotting', text: 'Хороша/погана згортання крові?' },
+                { key: 'feelingWell', text: 'Чи відчуваєте себе досить добре, щоб виконувати процедуру?' },
+                { key: 'medications', text: 'Чи приймаєте Ви зараз якісь медичні препарати?' },
+                { key: 'alcohol', text: 'Чи вживали ви алкоголь учора/сьогодні?' }
+            ];
+            
+            questions.forEach(question => {
+                const answer = formData[question.key] || 'НІ';
+                const checkmark = answer === 'ТАК' ? '☑' : '☐';
+                pdf.text(`${checkmark} ${question.text} ${answer}`, margin, yPosition);
+                yPosition += lineHeight;
+            });
+            
+            yPosition += lineHeight;
+            pdf.text(`Поріг чутливості: ${formData.sensitivityThreshold || 'середній'}`, margin, yPosition);
+            yPosition += lineHeight;
+            
+            pdf.text(`Ботокс/філери: ${formData.botoxFillers || '_________________'}`, margin, yPosition);
+            yPosition += lineHeight;
+            
+            pdf.text(`Відпустка: ${formData.vacation || '_________________'}`, margin, yPosition);
+            yPosition += lineHeight * 2;
+            
+            const contraindications = formData.contraindications || 'НІ';
+            const contraCheckmark = contraindications === 'ТАК' ? '☑' : '☐';
+            pdf.text(`${contraCheckmark} Я ознайомлена з протипоказами до процедури! ${contraindications}`, margin, yPosition);
+            yPosition += lineHeight;
+            
+            return yPosition;
+        }
+        
+        function addRemovalContent(pdf, formData, yPosition, margin, lineHeight) {
+            pdf.text(`Дата народження: ${formData.birthDate || '_________________'}`, margin, yPosition);
+            yPosition += lineHeight;
+            pdf.text(`Контактний номер: ${formData.phone || '_________________'}`, margin, yPosition);
+            yPosition += lineHeight;
+            pdf.text(`Інстаграм: ${formData.instagram || '_________________'}`, margin, yPosition);
+            yPosition += lineHeight * 2;
+            
+            // Add medical conditions table
+            pdf.setFontSize(10);
+            pdf.text('Інформація про наявність захворювань:', margin, yPosition);
+            yPosition += lineHeight;
+            
+            const conditions = [
+                'ВІЛ/СНІД', 'ГРВІ', 'Цукровий діабет', 'Слабка імунна система',
+                'Схильність до келоїдних рубців', 'Період вагітності і годування груддю',
+                'Онкологія', 'Коньюктівіт', 'Висипання на шкірі', 'Герпес'
+            ];
+            
+            conditions.forEach(condition => {
+                pdf.text(`☐ ${condition}`, margin, yPosition);
+                yPosition += lineHeight * 0.8;
+            });
+            
+            return yPosition;
         }
 
         function collectFormData() {
@@ -1185,88 +1286,6 @@
             return formData;
         }
 
-        function generatePrintableHTML(firstName, lastName, formData) {
-            const currentDate = new Date().toLocaleDateString('uk-UA');
-            const formTitle = currentForm === 'permanent' ? 'ПЕРМАНЕНТНОГО МАКІЯЖУ' : 'ВИДАЛЕННЯ ПЕРМАНЕНТНОГО МАКІЯЖУ';
-            
-            return `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>${firstName}_${lastName}_Zgoda</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.4; }
-                        .header { text-align: center; font-weight: bold; margin-bottom: 20px; }
-                        .field { margin: 10px 0; }
-                        .signature-area { border: 1px solid #000; height: 60px; margin: 10px 0; }
-                        .checkbox { margin-right: 5px; }
-                        .radio-group { margin: 10px 0; }
-                        @media print { body { margin: 0; } }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        ІНФОРМОВАНА ЗГОДА КЛІЄНТА НА ВИКОНАННЯ<br>
-                        ${formTitle}
-                    </div>
-                    
-                    <div class="field">Дата: ${currentDate}</div>
-                    <div class="field">ПІБ: ${firstName} ${lastName}</div>
-                    <div class="field">Телефон моб.: ${formData.phone || '_________________'}</div>
-                    
-                    ${generateFormContent(formData)}
-                    
-                    <div style="margin-top: 30px;">
-                        <div>Підпис клієнта: _________________</div>
-                        <div style="margin-top: 20px;">Підпис майстра: _________________</div>
-                    </div>
-                </body>
-                </html>
-            `;
-        }
-
-        function generateFormContent(formData) {
-            if (currentForm === 'permanent') {
-                return `
-                    <div class="field">
-                        <input type="checkbox" ${formData.allergy === 'ТАК' ? 'checked' : ''}> 
-                        Чи є у Вас алергія на лідокаїн /цукровий діабет/вагітність? ${formData.allergy || 'НІ'}
-                    </div>
-                    <div class="field">
-                        <input type="checkbox" ${formData.bloodClotting === 'ТАК' ? 'checked' : ''}> 
-                        Хороша/погана згортання крові? ${formData.bloodClotting || 'НІ'}
-                    </div>
-                    <div class="field">
-                        <input type="checkbox" ${formData.feelingWell === 'ТАК' ? 'checked' : ''}> 
-                        Чи відчуваєте себе досить добре, щоб виконувати процедуру? ${formData.feelingWell || 'НІ'}
-                    </div>
-                    <div class="field">Поріг чутливості: ${formData.sensitivityThreshold || 'середній'}</div>
-                    <div class="field">
-                        <input type="checkbox" ${formData.medications === 'ТАК' ? 'checked' : ''}> 
-                        Чи приймаєте Ви зараз якісь медичні препарати? ${formData.medications || 'НІ'}
-                    </div>
-                    <div class="field">
-                        <input type="checkbox" ${formData.alcohol === 'ТАК' ? 'checked' : ''}> 
-                        Чи вживали ви алкоголь учора/сьогодні? ${formData.alcohol || 'НІ'}
-                    </div>
-                    <div class="field">Ботокс/філери: ${formData.botoxFillers || '_________________'}</div>
-                    <div class="field">Відпустка: ${formData.vacation || '_________________'}</div>
-                    <div class="field">
-                        <input type="checkbox" ${formData.contraindications === 'ТАК' ? 'checked' : ''}> 
-                        Я ознайомлена з протипоказами до процедури перманентного макіяжу! ${formData.contraindications || 'НІ'}
-                    </div>
-                `;
-            } else {
-                return `
-                    <div class="field">Дата народження: ${formData.birthDate || '_________________'}</div>
-                    <div class="field">Контактний номер телефону: ${formData.phone || '_________________'}</div>
-                    <div class="field">Інстаграм: ${formData.instagram || '_________________'}</div>
-                    <!-- Додаткові поля для форми видалення -->
-                `;
-            }
-        }
-
         function authenticateGoogleDrive() {
             // Simulate Google Drive connection
             googleDriveConnected = true;
@@ -1286,64 +1305,6 @@
                 e.preventDefault();
             }
         });
-
-        function generatePDF() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            
-            if (!firstName || !lastName) {
-                showNotification('Будь ласка, введіть ім\'я та прізвище клієнта', 'warning');
-                return;
-            }
-
-            // Set document title for PDF filename
-            const filename = `${firstName}_${lastName}_Zgoda_${currentForm === 'permanent' ? 'PM' : 'Removal'}`;
-            document.title = filename;
-
-            // Create a clean version for PDF
-            const printContent = document.querySelector('.form-container').cloneNode(true);
-            
-            // Remove buttons and controls from print version
-            const buttonsToRemove = printContent.querySelectorAll('button, .form-controls, .patient-search');
-            buttonsToRemove.forEach(btn => btn.remove());
-
-            // Create new window for PDF
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>${filename}</title>
-                    <meta charset="UTF-8">
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        .form-container { max-width: 800px; margin: 0 auto; }
-                        .yes-no-question { margin: 10px 0; }
-                        .question-text { font-weight: bold; margin-bottom: 5px; }
-                        .radio-group { margin-left: 20px; }
-                        .radio-item { display: inline-block; margin-right: 20px; }
-                        input[type="radio"]:checked + label { font-weight: bold; color: #007bff; }
-                        .signature-section { margin-top: 30px; }
-                        .signature-pad { border: 1px solid #ccc; margin: 10px 0; }
-                        @media print {
-                            body { margin: 0; }
-                            .no-print { display: none; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${printContent.innerHTML}
-                </body>
-                </html>
-            `);
-            
-            printWindow.document.close();
-            
-            // Wait for content to load then print
-            setTimeout(() => {
-                printWindow.print();
-            }, 500);
-        }
 
         function shareForm() {
             shareFormAsPDF();
