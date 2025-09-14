@@ -280,6 +280,43 @@
             border-bottom: none;
         }
 
+        /* Dodanie ładnych stylów dla powiadomień */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 2000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            max-width: 350px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .notification.warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .notification.info {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+
+        /* Poprawa stylów modala */
         .modal {
             display: none;
             position: fixed;
@@ -287,8 +324,9 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
+            background: rgba(0,0,0,0.6);
+            z-index: 1500;
+            backdrop-filter: blur(4px);
         }
 
         .modal-content {
@@ -298,32 +336,22 @@
             transform: translate(-50%, -50%);
             background: white;
             padding: 30px;
-            border-radius: 15px;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
             max-width: 500px;
             width: 90%;
+            animation: modalSlideIn 0.3s ease;
         }
 
-        .google-drive-section {
-            background: #e8f5e8;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-
-        .status-connected {
-            background: #28a745;
-        }
-
-        .status-disconnected {
-            background: #dc3545;
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -60%);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+            }
         }
 
         @media (max-width: 768px) {
@@ -774,6 +802,9 @@
         </div>
     </div>
 
+    <!-- Dodanie kontenera dla powiadomień -->
+    <div id="notificationContainer"></div>
+
     <script>
         // Global variables
         let currentForm = 'permanent';
@@ -904,475 +935,22 @@
             document.getElementById('driveModal').style.display = 'block';
         }
 
-        function authenticateGoogleDrive() {
-            // Simulate Google Drive connection
-            googleDriveConnected = true;
-            document.getElementById('driveStatus').className = 'status-indicator status-connected';
-            document.getElementById('driveStatusText').textContent = 'Підключено';
-            closeModal();
-            alert('Google Drive успішно підключено!');
-        }
-
-        function closeModal() {
-            document.getElementById('driveModal').style.display = 'none';
-        }
-
-        // Patient history functionality
-        function loadPatientHistory() {
-            const historyList = document.getElementById('historyList');
-            historyList.innerHTML = '';
+        function showNotification(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('notificationContainer');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
             
-            if (patientHistory.length === 0) {
-                historyList.innerHTML = '<div class="history-item">Історія порожня</div>';
-                return;
-            }
+            container.appendChild(notification);
             
-            patientHistory.forEach((patient, index) => {
-                const item = document.createElement('div');
-                item.className = 'history-item';
-                item.innerHTML = `
-                    <strong>${patient.lastName} ${patient.firstName}</strong><br>
-                    <small>${patient.phone} | ${patient.date}</small>
-                `;
-                item.onclick = () => loadPatientData(index);
-                historyList.appendChild(item);
-            });
-        }
-
-        function searchHistory() {
-            const searchTerm = document.getElementById('searchHistory').value.toLowerCase();
-            const filteredHistory = patientHistory.filter(patient => 
-                patient.firstName.toLowerCase().includes(searchTerm) ||
-                patient.lastName.toLowerCase().includes(searchTerm)
-            );
+            // Trigger animation
+            setTimeout(() => notification.classList.add('show'), 100);
             
-            const historyList = document.getElementById('historyList');
-            historyList.innerHTML = '';
-            
-            if (filteredHistory.length === 0) {
-                historyList.innerHTML = '<div class="history-item">Нічого не знайдено</div>';
-                return;
-            }
-            
-            filteredHistory.forEach((patient, index) => {
-                const item = document.createElement('div');
-                item.className = 'history-item';
-                item.innerHTML = `
-                    <strong>${patient.lastName} ${patient.firstName}</strong><br>
-                    <small>${patient.phone} | ${patient.date}</small>
-                `;
-                item.onclick = () => loadPatientData(patientHistory.indexOf(patient));
-                historyList.appendChild(item);
-            });
-        }
-
-        function loadPatientData(index) {
-            const patient = patientHistory[index];
-            
-            // Load basic info
-            document.getElementById('firstName').value = patient.firstName;
-            document.getElementById('lastName').value = patient.lastName;
-            document.getElementById('phone').value = patient.phone;
-            document.getElementById('birthDate').value = patient.birthDate;
-            
-            // Load form data
-            Object.keys(patient.formData).forEach(key => {
-                const element = document.getElementById(key);
-                if (element) {
-                    if (element.type === 'checkbox') {
-                        element.checked = patient.formData[key];
-                    } else {
-                        element.value = patient.formData[key];
-                    }
-                }
-            });
-            
-            // Load signatures
-            if (patient.signatures) {
-                loadSignature('clientSignature', patient.signatures.client);
-                loadSignature('masterSignature', patient.signatures.master);
-            }
-            
-            updateFormData();
-        }
-
-        function loadSignature(canvasId, dataURL) {
-            if (!dataURL) return;
-            
-            const canvas = document.getElementById(canvasId);
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-            
-            img.onload = function() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0);
-            };
-            
-            img.src = dataURL;
-        }
-
-        // Form operations
-        function saveForm() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            
-            if (!firstName || !lastName) {
-                alert('Будь ласка, введіть ім\'я та прізвище клієнта');
-                return;
-            }
-            
-            const formData = {};
-            const inputs = document.querySelectorAll('input, select, textarea');
-            
-            inputs.forEach(input => {
-                if (input.id) {
-                    formData[input.id] = input.type === 'checkbox' ? input.checked : input.value;
-                }
-            });
-            
-            const signatures = {
-                client: document.getElementById('clientSignature').toDataURL(),
-                master: document.getElementById('masterSignature').toDataURL()
-            };
-            
-            const patientData = {
-                firstName,
-                lastName,
-                phone: document.getElementById('phone').value,
-                birthDate: document.getElementById('birthDate').value,
-                date: new Date().toISOString().split('T')[0],
-                formType: currentForm,
-                formData,
-                signatures
-            };
-            
-            // Save to local storage
-            const existingIndex = patientHistory.findIndex(p => 
-                p.firstName === firstName && p.lastName === lastName
-            );
-            
-            if (existingIndex >= 0) {
-                patientHistory[existingIndex] = patientData;
-            } else {
-                patientHistory.push(patientData);
-            }
-            
-            localStorage.setItem('patientHistory', JSON.stringify(patientHistory));
-            loadPatientHistory();
-            
-            // Save to Google Drive if connected
-            if (googleDriveConnected) {
-                saveToGoogleDrive(patientData);
-            }
-            
-            alert('Форму збережено успішно!');
-        }
-
-        function saveToGoogleDrive(patientData) {
-            // Simulate saving to Google Drive
-            console.log('Saving to Google Drive:', patientData);
-            // In a real implementation, this would use the Google Drive API
-        }
-
-        function loadForm() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            
-            if (!firstName || !lastName) {
-                alert('Будь ласка, введіть ім\'я та прізвище для пошуку');
-                return;
-            }
-            
-            const patient = patientHistory.find(p => 
-                p.firstName.toLowerCase() === firstName.toLowerCase() && 
-                p.lastName.toLowerCase() === lastName.toLowerCase()
-            );
-            
-            if (patient) {
-                loadPatientData(patientHistory.indexOf(patient));
-                alert('Дані клієнта завантажено!');
-            } else {
-                alert('Клієнта не знайдено в історії');
-            }
-        }
-
-        function printForm() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            
-            if (!firstName || !lastName) {
-                alert('Будь ласка, введіть ім\'я та прізвище перед друком');
-                return;
-            }
-            
-            // Save before printing
-            saveForm();
-            
-            const filename = `${firstName}_${lastName}_Zgoda.pdf`;
-            
-            // Create a temporary link for download with proper filename
-            const printContent = createPrintableContent(firstName, lastName);
-            
-            // Use modern print approach with filename suggestion
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(printContent);
-            printWindow.document.close();
-            
-            // Set the document title for proper PDF naming
-            printWindow.document.title = filename.replace('.pdf', '');
-            
-            // Add download functionality
+            // Auto remove
             setTimeout(() => {
-                printWindow.print();
-                
-                // For Safari/iOS - create downloadable blob
-                if (navigator.userAgent.includes('Safari') || navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad')) {
-                    createDownloadablePDF(firstName, lastName);
-                }
-            }, 500);
-        }
-
-        function createDownloadablePDF(firstName, lastName) {
-            const filename = `${firstName}_${lastName}_Zgoda.pdf`;
-            const formContent = document.querySelector('.consent-form.active').innerHTML;
-            const signatures = `
-                <div style="display: flex; justify-content: space-between; margin-top: 50px; page-break-inside: avoid;">
-                    <div>
-                        <p><strong>Підпис клієнта:</strong></p>
-                        <img src="${document.getElementById('clientSignature').toDataURL()}" style="border: 1px solid #ccc; max-width: 200px;">
-                    </div>
-                    <div>
-                        <p><strong>Підпис майстра:</strong></p>
-                        <img src="${document.getElementById('masterSignature').toDataURL()}" style="border: 1px solid #ccc; max-width: 200px;">
-                    </div>
-                </div>
-            `;
-            
-            const htmlContent = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>${filename.replace('.pdf', '')}</title>
-                    <style>
-                        body { 
-                            font-family: Arial, sans-serif; 
-                            padding: 20px; 
-                            line-height: 1.4;
-                            max-width: 800px;
-                            margin: 0 auto;
-                        }
-                        .editable-field { 
-                            border-bottom: 1px solid #333; 
-                            padding: 2px 5px; 
-                            display: inline-block;
-                            min-width: 100px;
-                        }
-                        .static-text { line-height: 1.6; }
-                        .checkbox-group { margin: 15px 0; }
-                        .checkbox-item { margin: 5px 0; }
-                        .form-header { text-align: center; margin-bottom: 30px; }
-                        @media print {
-                            body { margin: 0; padding: 15px; }
-                            .no-print { display: none; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${formContent}
-                    ${signatures}
-                </body>
-                </html>
-            `;
-            
-            // Create blob and download link
-            const blob = new Blob([htmlContent], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
-            
-            // Create temporary download link
-            const downloadLink = document.createElement('a');
-            downloadLink.href = url;
-            downloadLink.download = filename.replace('.pdf', '.html'); // HTML for now, can be converted to PDF
-            downloadLink.style.display = 'none';
-            document.body.appendChild(downloadLink);
-            
-            // Show option to download
-            if (confirm(`Хочете завантажити файл як "${filename.replace('.pdf', '.html')}"?`)) {
-                downloadLink.click();
-            }
-            
-            // Cleanup
-            setTimeout(() => {
-                document.body.removeChild(downloadLink);
-                URL.revokeObjectURL(url);
-            }, 1000);
-        }
-
-        function createPrintableContent(firstName, lastName) {
-            const formContent = document.querySelector('.consent-form.active').innerHTML;
-            const signatures = `
-                <div style="display: flex; justify-content: space-between; margin-top: 50px; page-break-inside: avoid;">
-                    <div>
-                        <p><strong>Підпис клієнта:</strong></p>
-                        <img src="${document.getElementById('clientSignature').toDataURL()}" style="border: 1px solid #ccc; max-width: 200px;">
-                    </div>
-                    <div>
-                        <p><strong>Підпис майстра:</strong></p>
-                        <img src="${document.getElementById('masterSignature').toDataURL()}" style="border: 1px solid #ccc; max-width: 200px;">
-                    </div>
-                </div>
-            `;
-            
-            return `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>${firstName}_${lastName}_Zgoda</title>
-                    <style>
-                        body { 
-                            font-family: Arial, sans-serif; 
-                            padding: 20px; 
-                            line-height: 1.4;
-                            max-width: 800px;
-                            margin: 0 auto;
-                        }
-                        .editable-field { 
-                            border-bottom: 1px solid #333; 
-                            padding: 2px 5px; 
-                            display: inline-block;
-                            min-width: 100px;
-                        }
-                        .static-text { line-height: 1.6; }
-                        .checkbox-group { margin: 15px 0; }
-                        .checkbox-item { margin: 5px 0; }
-                        .form-header { text-align: center; margin-bottom: 30px; }
-                        @media print {
-                            body { margin: 0; padding: 15px; }
-                            .no-print { display: none; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${formContent}
-                    ${signatures}
-                </body>
-                </html>
-            `;
-        }
-
-        function shareForm() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            
-            if (!firstName || !lastName) {
-                alert('Будь ласка, введіть ім\'я та прізвище перед поділенням');
-                return;
-            }
-            
-            // Save before sharing
-            saveForm();
-            
-            const filename = `${firstName}_${lastName}_Zgoda`;
-            
-            if (navigator.share) {
-                // Create shareable content
-                createDownloadablePDF(firstName, lastName);
-                
-                navigator.share({
-                    title: `Згода - ${firstName} ${lastName}`,
-                    text: 'Форма згоди на перманентний макіяж',
-                    files: [] // Files would be added here in a full implementation
-                }).catch(err => {
-                    console.log('Error sharing:', err);
-                    // Fallback to download
-                    createDownloadablePDF(firstName, lastName);
-                });
-            } else {
-                // Fallback - create downloadable file
-                createDownloadablePDF(firstName, lastName);
-            }
-        }
-
-        function clearForm() {
-            if (confirm('Ви впевнені, що хочете очистити форму?')) {
-                document.querySelectorAll('input, select, textarea').forEach(input => {
-                    if (input.type === 'checkbox') {
-                        input.checked = false;
-                    } else if (input.type !== 'date' || input.id !== 'date1' && input.id !== 'date2') {
-                        input.value = '';
-                    }
-                });
-                
-                clearSignature('clientSignature');
-                clearSignature('masterSignature');
-                updateFormData();
-            }
-        }
-
-        // Prevent form submission on Enter key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
-                e.preventDefault();
-            }
-        });
-
-        function generatePDF() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-            
-            if (!firstName || !lastName) {
-                alert('Будь ласка, введіть ім\'я та прізвище клієнта');
-                return;
-            }
-
-            // Set document title for PDF filename
-            const filename = `${firstName}_${lastName}_Zgoda_${currentForm === 'permanent' ? 'PM' : 'Removal'}`;
-            document.title = filename;
-
-            // Create a clean version for PDF
-            const printContent = document.querySelector('.form-container').cloneNode(true);
-            
-            // Remove buttons and controls from print version
-            const buttonsToRemove = printContent.querySelectorAll('button, .form-controls, .patient-search');
-            buttonsToRemove.forEach(btn => btn.remove());
-
-            // Create new window for PDF
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>${filename}</title>
-                    <meta charset="UTF-8">
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        .form-container { max-width: 800px; margin: 0 auto; }
-                        .yes-no-question { margin: 10px 0; }
-                        .question-text { font-weight: bold; margin-bottom: 5px; }
-                        .radio-group { margin-left: 20px; }
-                        .radio-item { display: inline-block; margin-right: 20px; }
-                        input[type="radio"]:checked + label { font-weight: bold; color: #007bff; }
-                        .signature-section { margin-top: 30px; }
-                        .signature-pad { border: 1px solid #ccc; margin: 10px 0; }
-                        @media print {
-                            body { margin: 0; }
-                            .no-print { display: none; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${printContent.innerHTML}
-                </body>
-                </html>
-            `);
-            
-            printWindow.document.close();
-            
-            // Wait for content to load then print
-            setTimeout(() => {
-                printWindow.print();
-            }, 500);
+                notification.classList.remove('show');
+                setTimeout(() => container.removeChild(notification), 300);
+            }, duration);
         }
 
         function saveForm() {
@@ -1380,7 +958,7 @@
             const lastName = document.getElementById('lastName').value;
             
             if (!firstName || !lastName) {
-                alert('Будь ласка, введіть ім\'я та прізвище клієнта');
+                showNotification('Будь ласка, введіть ім\'я та прізвище клієнта', 'warning');
                 return;
             }
             
@@ -1446,7 +1024,29 @@
                 saveToGoogleDrive(patientData);
             }
             
-            alert('Форму збережено успішно!');
+            showNotification('Форму збережено успішно!', 'success');
+        }
+
+        function loadPatientHistory() {
+            const firstName = document.getElementById('searchHistory').value.trim();
+            const lastName = document.getElementById('searchHistory').value.trim();
+            
+            if (!firstName || !lastName) {
+                showNotification('Будь ласка, введіть ім\'я та прізвище для пошуку', 'warning');
+                return;
+            }
+            
+            const patient = patientHistory.find(p => 
+                p.firstName.toLowerCase() === firstName.toLowerCase() && 
+                p.lastName.toLowerCase() === lastName.toLowerCase()
+            );
+            
+            if (patient) {
+                loadPatientData(patientHistory.indexOf(patient));
+                showNotification('Дані клієнта завантажено!', 'success');
+            } else {
+                showNotification('Клієнта не знайдено в історії', 'error');
+            }
         }
 
         function loadPatientData(patient) {
@@ -1491,7 +1091,7 @@
             const lastName = document.getElementById('lastName').value;
             
             if (!firstName || !lastName) {
-                alert('Будь ласка, введіть ім\'я та прізвище перед поділенням');
+                showNotification('Будь ласка, введіть ім\'я та прізвище перед поділенням', 'warning');
                 return;
             }
             
@@ -1501,8 +1101,13 @@
             const filename = `${firstName}_${lastName}_Zgoda.pdf`;
             
             try {
-                // Generate PDF content
+                showNotification('Генерування PDF...', 'info', 2000);
+                
                 const pdfBlob = await generatePDFBlob(firstName, lastName);
+                
+                if (!pdfBlob || pdfBlob.size === 0) {
+                    throw new Error('PDF blob is empty');
+                }
                 
                 // Check if Web Share API is supported (iOS Safari)
                 if (navigator.share && navigator.canShare) {
@@ -1514,157 +1119,230 @@
                             text: 'Форма згоди на перманентний макіяж',
                             files: [file]
                         });
+                        showNotification('PDF успішно поділено!', 'success');
                         return;
                     }
                 }
                 
                 // Fallback - direct download
                 downloadPDFBlob(pdfBlob, filename);
+                showNotification('PDF завантажено!', 'success');
                 
             } catch (error) {
                 console.error('Error sharing PDF:', error);
-                alert('Помилка при створенні PDF. Спробуйте ще раз.');
+                showNotification('Помилка при створенні PDF. Перевірте заповнення форми та спробуйте ще раз.', 'error', 6000);
             }
         }
 
         async function generatePDFBlob(firstName, lastName) {
-            return new Promise((resolve) => {
-                // Get current form content
-                const activeForm = document.querySelector('.consent-form.active');
-                const formContent = activeForm.cloneNode(true);
+            try {
+                const formData = collectFormData();
                 
-                // Remove interactive elements
-                const interactiveElements = formContent.querySelectorAll('input, select, textarea, button');
-                interactiveElements.forEach(element => {
-                    if (element.type === 'radio' && element.checked) {
-                        const label = formContent.querySelector(`label[for="${element.id}"]`);
-                        if (label) {
-                            label.style.fontWeight = 'bold';
-                            label.style.color = '#007bff';
-                        }
-                    }
-                    element.style.display = 'none';
-                });
+                if (!formData || Object.keys(formData).length === 0) {
+                    throw new Error('No form data collected');
+                }
                 
-                // Add filled values as text
-                const editableFields = formContent.querySelectorAll('.editable-field');
-                editableFields.forEach(field => {
-                    const input = field.querySelector('input, select, textarea');
-                    if (input && input.value) {
-                        field.innerHTML = input.value;
-                        field.style.borderBottom = '1px solid #333';
-                        field.style.padding = '2px 5px';
-                    }
-                });
+                // Create a clean HTML for PDF
+                const printContent = generatePrintableHTML(firstName, lastName, formData);
                 
-                // Add signatures
-                const clientSignature = document.getElementById('clientSignature');
-                const masterSignature = document.getElementById('masterSignature');
+                if (!printContent || printContent.length < 100) {
+                    throw new Error('Generated HTML is too short');
+                }
                 
-                const signaturesHTML = `
-                    <div style="display: flex; justify-content: space-between; margin-top: 50px; page-break-inside: avoid;">
-                        <div style="text-align: center;">
-                            <p><strong>Підпис клієнта:</strong></p>
-                            <img src="${clientSignature.toDataURL()}" style="border: 1px solid #ccc; max-width: 200px; max-height: 100px;">
-                        </div>
-                        <div style="text-align: center;">
-                            <p><strong>Підпис майстра:</strong></p>
-                            <img src="${masterSignature.toDataURL()}" style="border: 1px solid #ccc; max-width: 200px; max-height: 100px;">
-                        </div>
-                    </div>
-                `;
+                // Create blob from HTML
+                const blob = new Blob([printContent], { type: 'text/html;charset=utf-8' });
                 
-                // Create complete HTML for PDF
-                const htmlContent = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                        <title>${firstName}_${lastName}_Zgoda</title>
-                        <style>
-                            body { 
-                                font-family: Arial, sans-serif; 
-                                padding: 20px; 
-                                line-height: 1.4;
-                                max-width: 800px;
-                                margin: 0 auto;
-                                color: #333;
-                            }
-                            .form-header { 
-                                text-align: center; 
-                                margin-bottom: 30px; 
-                                font-size: 18px;
-                                font-weight: bold;
-                            }
-                            .editable-field { 
-                                border-bottom: 1px solid #333; 
-                                padding: 2px 5px; 
-                                display: inline-block;
-                                min-width: 100px;
-                                font-weight: bold;
-                            }
-                            .static-text { 
-                                line-height: 1.6; 
-                                margin: 10px 0;
-                            }
-                            .yes-no-question { 
-                                margin: 15px 0; 
-                                padding: 10px;
-                                background: #f9f9f9;
-                                border-left: 3px solid #007bff;
-                            }
-                            .question-text { 
-                                font-weight: bold; 
-                                margin-bottom: 8px; 
-                            }
-                            .radio-group { 
-                                margin-left: 20px; 
-                            }
-                            .radio-item { 
-                                display: inline-block; 
-                                margin-right: 30px; 
-                                font-size: 14px;
-                            }
-                            ul { 
-                                margin: 10px 0; 
-                                padding-left: 20px; 
-                            }
-                            li { 
-                                margin: 5px 0; 
-                            }
-                            @media print {
-                                body { margin: 0; padding: 15px; }
-                                .no-print { display: none; }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        ${formContent.innerHTML}
-                        ${signaturesHTML}
-                    </body>
-                    </html>
-                `;
+                if (blob.size === 0) {
+                    throw new Error('Generated blob is empty');
+                }
                 
-                // Convert HTML to blob (simulating PDF)
-                const blob = new Blob([htmlContent], { type: 'text/html' });
-                resolve(blob);
-            });
+                return blob;
+                
+            } catch (error) {
+                console.error('Error in generatePDFBlob:', error);
+                throw error;
+            }
         }
 
-        function downloadPDFBlob(blob, filename) {
-            const url = URL.createObjectURL(blob);
-            const downloadLink = document.createElement('a');
-            downloadLink.href = url;
-            downloadLink.download = filename.replace('.pdf', '.html'); // HTML format for now
-            downloadLink.style.display = 'none';
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
+        function collectFormData() {
+            const formData = {};
+            const inputs = document.querySelectorAll('input, select, textarea');
             
-            // Cleanup
+            inputs.forEach(input => {
+                if (input.id && input.id !== 'searchHistory') {
+                    if (input.type === 'radio') {
+                        if (input.checked) {
+                            formData[input.name] = input.value;
+                        }
+                    } else if (input.type === 'checkbox') {
+                        formData[input.id] = input.checked;
+                    } else {
+                        formData[input.id] = input.value;
+                    }
+                }
+            });
+            
+            return formData;
+        }
+
+        function generatePrintableHTML(firstName, lastName, formData) {
+            const currentDate = new Date().toLocaleDateString('uk-UA');
+            const formTitle = currentForm === 'permanent' ? 'ПЕРМАНЕНТНОГО МАКІЯЖУ' : 'ВИДАЛЕННЯ ПЕРМАНЕНТНОГО МАКІЯЖУ';
+            
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>${firstName}_${lastName}_Zgoda</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.4; }
+                        .header { text-align: center; font-weight: bold; margin-bottom: 20px; }
+                        .field { margin: 10px 0; }
+                        .signature-area { border: 1px solid #000; height: 60px; margin: 10px 0; }
+                        .checkbox { margin-right: 5px; }
+                        .radio-group { margin: 10px 0; }
+                        @media print { body { margin: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        ІНФОРМОВАНА ЗГОДА КЛІЄНТА НА ВИКОНАННЯ<br>
+                        ${formTitle}
+                    </div>
+                    
+                    <div class="field">Дата: ${currentDate}</div>
+                    <div class="field">ПІБ: ${firstName} ${lastName}</div>
+                    <div class="field">Телефон моб.: ${formData.phone || '_________________'}</div>
+                    
+                    ${generateFormContent(formData)}
+                    
+                    <div style="margin-top: 30px;">
+                        <div>Підпис клієнта: _________________</div>
+                        <div style="margin-top: 20px;">Підпис майстра: _________________</div>
+                    </div>
+                </body>
+                </html>
+            `;
+        }
+
+        function generateFormContent(formData) {
+            if (currentForm === 'permanent') {
+                return `
+                    <div class="field">
+                        <input type="checkbox" ${formData.allergy === 'ТАК' ? 'checked' : ''}> 
+                        Чи є у Вас алергія на лідокаїн /цукровий діабет/вагітність? ${formData.allergy || 'НІ'}
+                    </div>
+                    <div class="field">
+                        <input type="checkbox" ${formData.bloodClotting === 'ТАК' ? 'checked' : ''}> 
+                        Хороша/погана згортання крові? ${formData.bloodClotting || 'НІ'}
+                    </div>
+                    <div class="field">
+                        <input type="checkbox" ${formData.feelingWell === 'ТАК' ? 'checked' : ''}> 
+                        Чи відчуваєте себе досить добре, щоб виконувати процедуру? ${formData.feelingWell || 'НІ'}
+                    </div>
+                    <div class="field">Поріг чутливості: ${formData.sensitivityThreshold || 'середній'}</div>
+                    <div class="field">
+                        <input type="checkbox" ${formData.medications === 'ТАК' ? 'checked' : ''}> 
+                        Чи приймаєте Ви зараз якісь медичні препарати? ${formData.medications || 'НІ'}
+                    </div>
+                    <div class="field">
+                        <input type="checkbox" ${formData.alcohol === 'ТАК' ? 'checked' : ''}> 
+                        Чи вживали ви алкоголь учора/сьогодні? ${formData.alcohol || 'НІ'}
+                    </div>
+                    <div class="field">Ботокс/філери: ${formData.botoxFillers || '_________________'}</div>
+                    <div class="field">Відпустка: ${formData.vacation || '_________________'}</div>
+                    <div class="field">
+                        <input type="checkbox" ${formData.contraindications === 'ТАК' ? 'checked' : ''}> 
+                        Я ознайомлена з протипоказами до процедури перманентного макіяжу! ${formData.contraindications || 'НІ'}
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="field">Дата народження: ${formData.birthDate || '_________________'}</div>
+                    <div class="field">Контактний номер телефону: ${formData.phone || '_________________'}</div>
+                    <div class="field">Інстаграм: ${formData.instagram || '_________________'}</div>
+                    <!-- Додаткові поля для форми видалення -->
+                `;
+            }
+        }
+
+        function authenticateGoogleDrive() {
+            // Simulate Google Drive connection
+            googleDriveConnected = true;
+            document.getElementById('driveStatus').className = 'status-indicator status-connected';
+            document.getElementById('driveStatusText').textContent = 'Підключено';
+            closeModal();
+            showNotification('Google Drive успішно підключено!', 'success');
+        }
+
+        function closeModal() {
+            document.getElementById('driveModal').style.display = 'none';
+        }
+
+        // Prevent form submission on Enter key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+            }
+        });
+
+        function generatePDF() {
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            
+            if (!firstName || !lastName) {
+                showNotification('Будь ласка, введіть ім\'я та прізвище клієнта', 'warning');
+                return;
+            }
+
+            // Set document title for PDF filename
+            const filename = `${firstName}_${lastName}_Zgoda_${currentForm === 'permanent' ? 'PM' : 'Removal'}`;
+            document.title = filename;
+
+            // Create a clean version for PDF
+            const printContent = document.querySelector('.form-container').cloneNode(true);
+            
+            // Remove buttons and controls from print version
+            const buttonsToRemove = printContent.querySelectorAll('button, .form-controls, .patient-search');
+            buttonsToRemove.forEach(btn => btn.remove());
+
+            // Create new window for PDF
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${filename}</title>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .form-container { max-width: 800px; margin: 0 auto; }
+                        .yes-no-question { margin: 10px 0; }
+                        .question-text { font-weight: bold; margin-bottom: 5px; }
+                        .radio-group { margin-left: 20px; }
+                        .radio-item { display: inline-block; margin-right: 20px; }
+                        input[type="radio"]:checked + label { font-weight: bold; color: #007bff; }
+                        .signature-section { margin-top: 30px; }
+                        .signature-pad { border: 1px solid #ccc; margin: 10px 0; }
+                        @media print {
+                            body { margin: 0; }
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${printContent.innerHTML}
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            
+            // Wait for content to load then print
             setTimeout(() => {
-                document.body.removeChild(downloadLink);
-                URL.revokeObjectURL(url);
-            }, 1000);
+                printWindow.print();
+            }, 500);
         }
 
         function shareForm() {
