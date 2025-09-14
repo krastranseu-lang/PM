@@ -1011,32 +1011,74 @@
             // Save before printing
             saveForm();
             
-            // Create print window
+            const filename = `${firstName}_${lastName}_Zgoda.pdf`;
+            
+            // Create a temporary link for download with proper filename
+            const printContent = createPrintableContent(firstName, lastName);
+            
+            // Use modern print approach with filename suggestion
             const printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            
+            // Set the document title for proper PDF naming
+            printWindow.document.title = filename.replace('.pdf', '');
+            
+            // Add download functionality
+            setTimeout(() => {
+                printWindow.print();
+                
+                // For Safari/iOS - create downloadable blob
+                if (navigator.userAgent.includes('Safari') || navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad')) {
+                    createDownloadablePDF(firstName, lastName);
+                }
+            }, 500);
+        }
+
+        function createDownloadablePDF(firstName, lastName) {
+            const filename = `${firstName}_${lastName}_Zgoda.pdf`;
             const formContent = document.querySelector('.consent-form.active').innerHTML;
             const signatures = `
-                <div style="display: flex; justify-content: space-between; margin-top: 50px;">
+                <div style="display: flex; justify-content: space-between; margin-top: 50px; page-break-inside: avoid;">
                     <div>
-                        <p>Підпис клієнта:</p>
-                        <img src="${document.getElementById('clientSignature').toDataURL()}" style="border: 1px solid #ccc;">
+                        <p><strong>Підпис клієнта:</strong></p>
+                        <img src="${document.getElementById('clientSignature').toDataURL()}" style="border: 1px solid #ccc; max-width: 200px;">
                     </div>
                     <div>
-                        <p>Підпис майстра:</p>
-                        <img src="${document.getElementById('masterSignature').toDataURL()}" style="border: 1px solid #ccc;">
+                        <p><strong>Підпис майстра:</strong></p>
+                        <img src="${document.getElementById('masterSignature').toDataURL()}" style="border: 1px solid #ccc; max-width: 200px;">
                     </div>
                 </div>
             `;
             
-            printWindow.document.write(`
+            const htmlContent = `
+                <!DOCTYPE html>
                 <html>
                 <head>
-                    <title>Згода - ${firstName} ${lastName}</title>
+                    <meta charset="UTF-8">
+                    <title>${filename.replace('.pdf', '')}</title>
                     <style>
-                        body { font-family: Arial, sans-serif; padding: 20px; }
-                        .editable-field { border-bottom: 1px solid #333; padding: 2px 5px; }
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            padding: 20px; 
+                            line-height: 1.4;
+                            max-width: 800px;
+                            margin: 0 auto;
+                        }
+                        .editable-field { 
+                            border-bottom: 1px solid #333; 
+                            padding: 2px 5px; 
+                            display: inline-block;
+                            min-width: 100px;
+                        }
                         .static-text { line-height: 1.6; }
                         .checkbox-group { margin: 15px 0; }
                         .checkbox-item { margin: 5px 0; }
+                        .form-header { text-align: center; margin-bottom: 30px; }
+                        @media print {
+                            body { margin: 0; padding: 15px; }
+                            .no-print { display: none; }
+                        }
                     </style>
                 </head>
                 <body>
@@ -1044,10 +1086,82 @@
                     ${signatures}
                 </body>
                 </html>
-            `);
+            `;
             
-            printWindow.document.close();
-            printWindow.print();
+            // Create blob and download link
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            // Create temporary download link
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = filename.replace('.pdf', '.html'); // HTML for now, can be converted to PDF
+            downloadLink.style.display = 'none';
+            document.body.appendChild(downloadLink);
+            
+            // Show option to download
+            if (confirm(`Хочете завантажити файл як "${filename.replace('.pdf', '.html')}"?`)) {
+                downloadLink.click();
+            }
+            
+            // Cleanup
+            setTimeout(() => {
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(url);
+            }, 1000);
+        }
+
+        function createPrintableContent(firstName, lastName) {
+            const formContent = document.querySelector('.consent-form.active').innerHTML;
+            const signatures = `
+                <div style="display: flex; justify-content: space-between; margin-top: 50px; page-break-inside: avoid;">
+                    <div>
+                        <p><strong>Підпис клієнта:</strong></p>
+                        <img src="${document.getElementById('clientSignature').toDataURL()}" style="border: 1px solid #ccc; max-width: 200px;">
+                    </div>
+                    <div>
+                        <p><strong>Підпис майстра:</strong></p>
+                        <img src="${document.getElementById('masterSignature').toDataURL()}" style="border: 1px solid #ccc; max-width: 200px;">
+                    </div>
+                </div>
+            `;
+            
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>${firstName}_${lastName}_Zgoda</title>
+                    <style>
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            padding: 20px; 
+                            line-height: 1.4;
+                            max-width: 800px;
+                            margin: 0 auto;
+                        }
+                        .editable-field { 
+                            border-bottom: 1px solid #333; 
+                            padding: 2px 5px; 
+                            display: inline-block;
+                            min-width: 100px;
+                        }
+                        .static-text { line-height: 1.6; }
+                        .checkbox-group { margin: 15px 0; }
+                        .checkbox-item { margin: 5px 0; }
+                        .form-header { text-align: center; margin-bottom: 30px; }
+                        @media print {
+                            body { margin: 0; padding: 15px; }
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${formContent}
+                    ${signatures}
+                </body>
+                </html>
+            `;
         }
 
         function shareForm() {
@@ -1062,18 +1176,24 @@
             // Save before sharing
             saveForm();
             
+            const filename = `${firstName}_${lastName}_Zgoda`;
+            
             if (navigator.share) {
+                // Create shareable content
+                createDownloadablePDF(firstName, lastName);
+                
                 navigator.share({
                     title: `Згода - ${firstName} ${lastName}`,
                     text: 'Форма згоди на перманентний макіяж',
-                    url: window.location.href
+                    files: [] // Files would be added here in a full implementation
+                }).catch(err => {
+                    console.log('Error sharing:', err);
+                    // Fallback to download
+                    createDownloadablePDF(firstName, lastName);
                 });
             } else {
-                // Fallback for browsers that don't support Web Share API
-                const url = window.location.href;
-                navigator.clipboard.writeText(url).then(() => {
-                    alert('Посилання скопійовано в буфер обміну!');
-                });
+                // Fallback - create downloadable file
+                createDownloadablePDF(firstName, lastName);
             }
         }
 
