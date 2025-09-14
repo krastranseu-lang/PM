@@ -372,6 +372,53 @@
             }
         }
 
+        /* Adding print styles for PDF generation */
+        @media print {
+            body {
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            
+            .container {
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                max-width: none !important;
+                margin: 0 !important;
+            }
+            
+            .header {
+                background: white !important;
+                color: black !important;
+                border-bottom: 2px solid #333;
+            }
+            
+            .main-content {
+                padding: 20px !important;
+            }
+            
+            .actions, .form-selector, .google-drive-section, .client-history {
+                display: none !important;
+            }
+            
+            .signature-pad {
+                border: 1px solid #333 !important;
+                background: white !important;
+            }
+            
+            .form-section {
+                page-break-inside: avoid;
+            }
+            
+            .radio-group label {
+                color: black !important;
+            }
+            
+            input[type="radio"]:checked + label {
+                font-weight: bold;
+            }
+        }
+
         .radio-group {
             display: flex;
             gap: 20px;
@@ -778,6 +825,7 @@
             <div class="actions">
                 <button class="btn btn-success" onclick="saveForm()">💾 Зберегти</button>
                 <button class="btn btn-primary" onclick="loadForm()">📂 Завантажити</button>
+                <!-- Changed print function to use window.print instead of PDF generation -->
                 <button class="btn btn-primary" onclick="printForm()">🖨️ Друкувати</button>
                 <button class="btn btn-primary" onclick="shareForm()">📤 Поділитися</button>
                 <button class="btn btn-danger" onclick="clearForm()">🗑️ Очистити</button>
@@ -1090,524 +1138,40 @@
             updateFormData();
         }
 
-        async function shareFormAsPDF() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
+        function printForm() {
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
             
             if (!firstName || !lastName) {
-                showNotification('Будь ласка, введіть ім\'я та прізвище перед поділенням', 'warning');
+                showNotification('Будь ласка, введіть ім\'я та прізвище для друку', 'error');
                 return;
             }
             
-            // Save before sharing
-            saveForm();
+            // Set document title for PDF filename
+            const originalTitle = document.title;
+            document.title = `${firstName}_${lastName}_Zgoda`;
             
-            const filename = `${firstName}_${lastName}_Zgoda.pdf`;
+            // Print the page
+            window.print();
             
-            try {
-                showNotification('Генерування PDF...', 'info', 2000);
-                
-                const pdfBlob = await generatePDFBlob(firstName, lastName);
-                
-                if (!pdfBlob || pdfBlob.size === 0) {
-                    throw new Error('PDF blob is empty');
-                }
-                
-                // Check if Web Share API is supported (iOS Safari)
-                if (navigator.share && navigator.canShare) {
-                    const file = new File([pdfBlob], filename, { type: 'application/pdf' });
-                    
-                    if (navigator.canShare({ files: [file] })) {
-                        await navigator.share({
-                            title: `Згода - ${firstName} ${lastName}`,
-                            text: 'Форма згоди на перманентний макіяж',
-                            files: [file]
-                        });
-                        showNotification('PDF успішно поділено!', 'success');
-                        return;
-                    }
-                }
-                
-                // Fallback - direct download
-                downloadPDFBlob(pdfBlob, filename);
-                showNotification('PDF завантажено!', 'success');
-                
-            } catch (error) {
-                console.error('Error sharing PDF:', error);
-                showNotification('Помилка при створенні PDF. Перевірте заповнення форми та спробуйте ще раз.', 'error', 6000);
-            }
+            // Restore original title after print dialog
+            setTimeout(() => {
+                document.title = originalTitle;
+            }, 1000);
         }
 
-        async function generatePDFBlob(firstName, lastName) {
-            try {
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                
-                // Set font for Ukrainian text support
-                pdf.setFont('helvetica');
-                pdf.setFontSize(12);
-                
-                const formData = collectFormData();
-                const currentDate = new Date().toLocaleDateString('uk-UA');
-                const formTitle = currentForm === 'permanent' ? 'ПЕРМАНЕНТНОГО МАКІЯЖУ' : 'ВИДАЛЕННЯ ПЕРМАНЕНТНОГО МАКІЯЖУ';
-                
-                let yPosition = 20;
-                const lineHeight = 7;
-                const pageWidth = 210;
-                const margin = 20;
-                const maxWidth = pageWidth - (margin * 2);
-                
-                // Header
-                pdf.setFontSize(14);
-                pdf.setFont('helvetica', 'bold');
-                const headerText = 'ІНФОРМОВАНА ЗГОДА КЛІЄНТА НА ВИКОНАННЯ';
-                pdf.text(headerText, pageWidth/2, yPosition, { align: 'center' });
-                yPosition += lineHeight;
-                pdf.text(formTitle, pageWidth/2, yPosition, { align: 'center' });
-                yPosition += lineHeight * 2;
-                
-                // Basic info
-                pdf.setFontSize(12);
-                pdf.setFont('helvetica', 'normal');
-                pdf.text(`Дата: ${currentDate}`, margin, yPosition);
-                yPosition += lineHeight;
-                pdf.text(`ПІБ: ${firstName} ${lastName}`, margin, yPosition);
-                yPosition += lineHeight;
-                pdf.text(`Телефон моб.: ${formData.phone || '_________________'}`, margin, yPosition);
-                yPosition += lineHeight * 2;
-                
-                // Form-specific content
-                if (currentForm === 'permanent') {
-                    yPosition = addPermanentMakeupContent(pdf, formData, yPosition, margin, lineHeight);
-                } else {
-                    yPosition = addRemovalContent(pdf, formData, yPosition, margin, lineHeight);
-                }
-                
-                // Signatures
-                yPosition += lineHeight;
-                pdf.text('Підпис клієнта: _________________', margin, yPosition);
-                yPosition += lineHeight * 2;
-                pdf.text('Підпис майстра: _________________', margin, yPosition);
-                
-                // Convert to blob
-                const pdfBlob = pdf.output('blob');
-                
-                if (!pdfBlob || pdfBlob.size === 0) {
-                    throw new Error('Generated PDF is empty');
-                }
-                
-                return pdfBlob;
-                
-            } catch (error) {
-                console.error('Error generating PDF:', error);
-                throw new Error('Помилка генерування PDF: ' + error.message);
-            }
-        }
-        
-        function addPermanentMakeupContent(pdf, formData, yPosition, margin, lineHeight) {
-            const questions = [
-                { key: 'allergy', text: 'Чи є у Вас алергія на лідокаїн /цукровий діабет/вагітність?' },
-                { key: 'bloodClotting', text: 'Хороша/погана згортання крові?' },
-                { key: 'feelingWell', text: 'Чи відчуваєте себе досить добре, щоб виконувати процедуру?' },
-                { key: 'medications', text: 'Чи приймаєте Ви зараз якісь медичні препарати?' },
-                { key: 'alcohol', text: 'Чи вживали ви алкоголь учора/сьогодні?' }
-            ];
-            
-            questions.forEach(question => {
-                const answer = formData[question.key] || 'НІ';
-                const checkmark = answer === 'ТАК' ? '☑' : '☐';
-                pdf.text(`${checkmark} ${question.text} ${answer}`, margin, yPosition);
-                yPosition += lineHeight;
-            });
-            
-            yPosition += lineHeight;
-            pdf.text(`Поріг чутливості: ${formData.sensitivityThreshold || 'середній'}`, margin, yPosition);
-            yPosition += lineHeight;
-            
-            pdf.text(`Ботокс/філери: ${formData.botoxFillers || '_________________'}`, margin, yPosition);
-            yPosition += lineHeight;
-            
-            pdf.text(`Відпустка: ${formData.vacation || '_________________'}`, margin, yPosition);
-            yPosition += lineHeight * 2;
-            
-            const contraindications = formData.contraindications || 'НІ';
-            const contraCheckmark = contraindications === 'ТАК' ? '☑' : '☐';
-            pdf.text(`${contraCheckmark} Я ознайомлена з протипоказами до процедури! ${contraindications}`, margin, yPosition);
-            yPosition += lineHeight;
-            
-            return yPosition;
-        }
-        
-        function addRemovalContent(pdf, formData, yPosition, margin, lineHeight) {
-            pdf.text(`Дата народження: ${formData.birthDate || '_________________'}`, margin, yPosition);
-            yPosition += lineHeight;
-            pdf.text(`Контактний номер: ${formData.phone || '_________________'}`, margin, yPosition);
-            yPosition += lineHeight;
-            pdf.text(`Інстаграм: ${formData.instagram || '_________________'}`, margin, yPosition);
-            yPosition += lineHeight * 2;
-            
-            // Add medical conditions table
-            pdf.setFontSize(10);
-            pdf.text('Інформація про наявність захворювань:', margin, yPosition);
-            yPosition += lineHeight;
-            
-            const conditions = [
-                'ВІЛ/СНІД', 'ГРВІ', 'Цукровий діабет', 'Слабка імунна система',
-                'Схильність до келоїдних рубців', 'Період вагітності і годування груддю',
-                'Онкологія', 'Коньюктівіт', 'Висипання на шкірі', 'Герпес'
-            ];
-            
-            conditions.forEach(condition => {
-                pdf.text(`☐ ${condition}`, margin, yPosition);
-                yPosition += lineHeight * 0.8;
-            });
-            
-            return yPosition;
-        }
-
-        function collectFormData() {
-            const formData = {};
-            const inputs = document.querySelectorAll('input, select, textarea');
-            
-            inputs.forEach(input => {
-                if (input.id && input.id !== 'searchHistory') {
-                    if (input.type === 'radio') {
-                        if (input.checked) {
-                            formData[input.name] = input.value;
-                        }
-                    } else if (input.type === 'checkbox') {
-                        formData[input.id] = input.checked;
-                    } else {
-                        formData[input.id] = input.value;
-                    }
-                }
-            });
-            
-            return formData;
-        }
-
-        function collectFormData() {
-            try {
-                const firstName = document.getElementById('firstName')?.value || '';
-                const lastName = document.getElementById('lastName')?.value || '';
-                const phone = document.getElementById('phone')?.value || '';
-                const birthDate = document.getElementById('birthDate')?.value || '';
-                
-                const formData = {
-                    firstName,
-                    lastName,
-                    phone,
-                    birthDate,
-                    responses: {}
-                };
-                
-                // Collect all radio button responses with proper names
-                const radioGroups = ['allergy', 'bloodClotting', 'feelingWell', 'medications', 'alcohol'];
-                radioGroups.forEach(groupName => {
-                    const checkedRadio = document.querySelector(`input[name="${groupName}"]:checked`);
-                    if (checkedRadio) {
-                        formData.responses[groupName] = checkedRadio.value;
-                    }
-                });
-                
-                // Collect checkbox responses
-                const contraindications = document.getElementById('contraindications');
-                if (contraindications) {
-                    formData.responses.contraindications = contraindications.checked;
-                }
-                
-                const noMedicalContraindications = document.getElementById('noMedicalContraindications');
-                if (noMedicalContraindications) {
-                    formData.responses.noMedicalContraindications = noMedicalContraindications.checked;
-                }
-                
-                // Collect textarea responses
-                const botoxFillers = document.getElementById('botoxFillers');
-                if (botoxFillers && botoxFillers.value.trim()) {
-                    formData.responses.botoxFillers = botoxFillers.value;
-                }
-                
-                const vacationPlans = document.getElementById('plans');
-                if (vacationPlans && vacationPlans.value.trim()) {
-                    formData.responses.vacationPlans = vacationPlans.value;
-                }
-                
-                // Collect sensitivity level
-                const sensitivity = document.getElementById('sensitivity');
-                if (sensitivity && sensitivity.value !== 'Оберіть...') {
-                    formData.responses.sensitivity = sensitivity.value;
-                }
-                
-                console.log('[v0] Collected form data:', formData);
-                return formData;
-                
-            } catch (error) {
-                console.error('[v0] Error collecting form data:', error);
-                return {
-                    firstName: '',
-                    lastName: '',
-                    phone: '',
-                    birthDate: '',
-                    responses: {}
-                };
-            }
-        }
-
-        async function generatePDFBlob(firstName, lastName) {
-            try {
-                console.log('[v0] Starting PDF generation for:', firstName, lastName);
-                
-                if (!window.jspdf) {
-                    throw new Error('jsPDF library not loaded');
-                }
-                
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                
-                pdf.setFont('helvetica');
-                pdf.setFontSize(12);
-                
-                const formData = collectFormData();
-                console.log('[v0] Form data for PDF:', formData);
-                
-                const currentDate = new Date().toLocaleDateString('uk-UA');
-                
-                let yPosition = 20;
-                const lineHeight = 7;
-                const pageWidth = 210;
-                const margin = 20;
-                
-                // Header
-                pdf.setFontSize(14);
-                pdf.setFont('helvetica', 'bold');
-                const headerText = 'INFORMOVANA ZGODA KLIENTA NA VYKONANNYA';
-                pdf.text(headerText, pageWidth/2, yPosition, { align: 'center' });
-                yPosition += lineHeight;
-                pdf.text('PERMANENTNOGO MAKIYAZHU', pageWidth/2, yPosition, { align: 'center' });
-                yPosition += lineHeight * 2;
-                
-                // Basic info
-                pdf.setFontSize(12);
-                pdf.setFont('helvetica', 'normal');
-                pdf.text(`Data: ${currentDate}`, margin, yPosition);
-                yPosition += lineHeight;
-                pdf.text(`PIB: ${firstName} ${lastName}`, margin, yPosition);
-                yPosition += lineHeight;
-                pdf.text(`Telefon mob.: ${formData.phone || '_________________'}`, margin, yPosition);
-                yPosition += lineHeight * 2;
-                
-                // Questions with proper answers
-                const questions = [
-                    { key: 'allergy', text: '1. Chy ye u Vas alergiya na lidokain/tsukrovyy diabet/vagitnist?' },
-                    { key: 'bloodClotting', text: '2. Khorosha/pogana zgortannya krovi?' },
-                    { key: 'feelingWell', text: '3. Chy vidchuvayete sebe dosyt dobre, shchob vykonuvaty protseduru?' },
-                    { key: 'medications', text: '4. Chy pryyimayete Vy zaraz yakis medychni preparaty?' },
-                    { key: 'alcohol', text: '5. Chy vzhyvaly vy alkogol uchora/sogodni?' }
-                ];
-                
-                questions.forEach(question => {
-                    pdf.text(question.text, margin, yPosition);
-                    yPosition += lineHeight;
-                    const answer = formData.responses[question.key] || 'NI';
-                    pdf.text(`        ${answer}`, margin + 10, yPosition);
-                    yPosition += lineHeight * 1.5;
-                });
-                
-                // Additional fields
-                if (formData.responses.sensitivity) {
-                    pdf.text(`Porig chutlyvosti: ${formData.responses.sensitivity}`, margin, yPosition);
-                    yPosition += lineHeight;
-                }
-                
-                if (formData.responses.botoxFillers) {
-                    pdf.text('Botoks/filery:', margin, yPosition);
-                    yPosition += lineHeight;
-                    pdf.text(formData.responses.botoxFillers, margin, yPosition);
-                    yPosition += lineHeight * 1.5;
-                }
-                
-                if (formData.responses.vacationPlans) {
-                    pdf.text('Plany na vidpustku:', margin, yPosition);
-                    yPosition += lineHeight;
-                    pdf.text(formData.responses.vacationPlans, margin, yPosition);
-                    yPosition += lineHeight * 1.5;
-                }
-                
-                // Consent text
-                yPosition += lineHeight;
-                pdf.text('Ya dayu dozil na vykonannya protsedur permanentnogo makiyazhu', margin, yPosition);
-                yPosition += lineHeight;
-                pdf.text('za zatverdzhenyy eskizom.', margin, yPosition);
-                yPosition += lineHeight * 2;
-                
-                // Contraindications
-                if (formData.responses.contraindications) {
-                    pdf.text('✓ Ya oznayomlena z protypokazamy do protsedury!', margin, yPosition);
-                    yPosition += lineHeight;
-                }
-                
-                if (formData.responses.noMedicalContraindications) {
-                    pdf.text('✓ Ya ne mayu medychnykh protypokazan dlya vykonannya protsedur', margin, yPosition);
-                    yPosition += lineHeight * 2;
-                }
-                
-                // Signatures
-                yPosition += lineHeight;
-                pdf.text('Pidpys klienta: _________________', margin, yPosition);
-                yPosition += lineHeight * 2;
-                pdf.text('Pidpys maystra: _________________', margin, yPosition);
-                
-                const pdfBlob = pdf.output('blob');
-                
-                if (!pdfBlob || pdfBlob.size === 0) {
-                    throw new Error('Generated PDF is empty');
-                }
-                
-                return pdfBlob;
-                
-            } catch (error) {
-                console.error('[v0] Error generating PDF:', error);
-                throw error;
-            }
-        }
-
-        async function shareFormAsPDF() {
-            const firstName = document.getElementById('firstName')?.value?.trim();
-            const lastName = document.getElementById('lastName')?.value?.trim();
-            
-            console.log('[v0] Share PDF called with:', firstName, lastName);
+        function shareForm() {
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
             
             if (!firstName || !lastName) {
-                showNotification('Будь ласка, введіть ім\'я та прізвище перед поділенням', 'warning');
+                showNotification('Будь ласка, введіть ім\'я та прізвище', 'error');
                 return;
             }
             
-            // Save before sharing
-            saveForm();
-            
-            const filename = `${firstName}_${lastName}_Zgoda.pdf`;
-            
-            try {
-                showNotification('Генерування PDF...', 'info', 2000);
-                
-                const pdfBlob = await generatePDFBlob(firstName, lastName);
-                
-                if (!pdfBlob || pdfBlob.size === 0) {
-                    throw new Error('PDF blob is empty');
-                }
-                
-                console.log('[v0] PDF blob created successfully, size:', pdfBlob.size);
-                
-                // Check if Web Share API is supported (iOS Safari)
-                if (navigator.share && navigator.canShare) {
-                    const file = new File([pdfBlob], filename, { type: 'application/pdf' });
-                    
-                    if (navigator.canShare({ files: [file] })) {
-                        await navigator.share({
-                            title: `Згода - ${firstName} ${lastName}`,
-                            text: 'Форма згоди на перманентний макіяж',
-                            files: [file]
-                        });
-                        showNotification('PDF успішно поділено!', 'success');
-                        return;
-                    }
-                }
-                
-                // Fallback - direct download
-                downloadPDFBlob(pdfBlob, filename);
-                showNotification('PDF завантажено!', 'success');
-                
-            } catch (error) {
-                console.error('[v0] Error sharing PDF:', error);
-                showNotification(`Помилка: ${error.message}`, 'error', 6000);
-            }
-        }
-
-        async function shareFormAsPDF() {
-            const firstName = document.getElementById('firstName')?.value?.trim();
-            const lastName = document.getElementById('lastName')?.value?.trim();
-            
-            console.log('[v0] Share PDF called with:', firstName, lastName);
-            
-            if (!firstName || !lastName) {
-                showNotification('Будь ласка, введіть ім\'я та прізвище перед поділенням', 'warning');
-                return;
-            }
-            
-            // Save before sharing
-            saveForm();
-            
-            const filename = `${firstName}_${lastName}_Zgoda.pdf`;
-            
-            try {
-                showNotification('Генерування PDF...', 'info', 2000);
-                
-                const pdfBlob = await generatePDFBlob(firstName, lastName);
-                
-                if (!pdfBlob || pdfBlob.size === 0) {
-                    throw new Error('PDF blob is empty');
-                }
-                
-                console.log('[v0] PDF blob created successfully, size:', pdfBlob.size);
-                
-                // Check if Web Share API is supported (iOS Safari)
-                if (navigator.share) {
-                    try {
-                        const file = new File([pdfBlob], filename, { type: 'application/pdf' });
-                        
-                        // Check if files can be shared
-                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                            await navigator.share({
-                                title: `Згода - ${firstName} ${lastName}`,
-                                text: 'Форма згоди на перманентний макіяж',
-                                files: [file]
-                            });
-                            showNotification('PDF успішно поділено!', 'success');
-                            return;
-                        } else {
-                            // Try sharing without files (text only)
-                            await navigator.share({
-                                title: `Згода - ${firstName} ${lastName}`,
-                                text: 'Форма згоди на перманентний макіяж'
-                            });
-                            // Still download the file
-                            downloadPDFBlob(pdfBlob, filename);
-                            showNotification('PDF завантажено! Посилання поділено.', 'success');
-                            return;
-                        }
-                    } catch (shareError) {
-                        console.log('[v0] Share was cancelled or failed:', shareError.message);
-                        // If user cancelled sharing, just download the file
-                        if (shareError.name === 'AbortError') {
-                            downloadPDFBlob(pdfBlob, filename);
-                            showNotification('PDF завантажено (поділення скасовано)', 'info');
-                            return;
-                        }
-                        throw shareError;
-                    }
-                }
-                
-                // Fallback - direct download
-                downloadPDFBlob(pdfBlob, filename);
-                showNotification('PDF завантажено!', 'success');
-                
-            } catch (error) {
-                console.error('[v0] Error sharing PDF:', error);
-                if (error.message.includes('empty') || error.message.includes('PDF')) {
-                    showNotification('Помилка при створенні PDF. Перевірте заповнення форми та спробуйте ще раз.', 'error', 6000);
-                } else {
-                    showNotification('Помилка при поділенні. PDF буде завантажено.', 'warning');
-                    // Try to download anyway
-                    try {
-                        const pdfBlob = await generatePDFBlob(firstName, lastName);
-                        if (pdfBlob && pdfBlob.size > 0) {
-                            downloadPDFBlob(pdfBlob, filename);
-                        }
-                    } catch (downloadError) {
-                        console.error('[v0] Download fallback failed:', downloadError);
-                    }
-                }
-            }
+            // First try to print, then user can share the PDF
+            printForm();
+            showNotification('Після збереження PDF можете поділитися файлом', 'info');
         }
 
         function authenticateGoogleDrive() {
@@ -1629,10 +1193,6 @@
                 e.preventDefault();
             }
         });
-
-        function shareForm() {
-            shareFormAsPDF();
-        }
 
         // Prevent form submission on Enter key
         document.addEventListener('keydown', function(e) {
